@@ -1,0 +1,1308 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shop Bestilling</title>
+<meta name="description" content="Hurtigt bestillingsoverblik ud fra Winpos-eksporter (LTC, Perfume, Andet) med eksport til Order Heinemann.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2540'/%3E%3Cpath d='M6 19h20l-3 6H9z' fill='%2314b8a6'/%3E%3Cpath d='M15 6v12M15 6l7 9h-7' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --surface-2:#f8fafc; --ink:#0f1b2d; --ink-2:#475569; --ink-3:#94a3b8;
+  --line:#e2e8f0; --navy:#0b2540; --navy-2:#123559; --accent:#0f766e; --accent-soft:#ccfbf1;
+  --red:#dc2626; --red-soft:#fee2e2; --amber:#b45309; --amber-soft:#fef3c7; --blue:#1d4ed8; --blue-soft:#dbeafe;
+  --green:#15803d; --green-soft:#dcfce7; --shadow:0 1px 2px rgba(15,27,45,.06),0 4px 16px rgba(15,27,45,.06);
+  --radius:12px; --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1220; --surface:#111a2b; --surface-2:#0f1726; --ink:#e5edf7; --ink-2:#a3b1c6; --ink-3:#64748b;
+    --line:#1f2a3d; --navy:#071a2e; --navy-2:#0e2a47; --accent:#2dd4bf; --accent-soft:#0f3b3a;
+    --red:#f87171; --red-soft:#3b1414; --amber:#fbbf24; --amber-soft:#3a2a0a; --blue:#93c5fd; --blue-soft:#13254a;
+    --green:#4ade80; --green-soft:#0f2e1c; --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1220; --surface:#111a2b; --surface-2:#0f1726; --ink:#e5edf7; --ink-2:#a3b1c6; --ink-3:#64748b;
+  --line:#1f2a3d; --navy:#071a2e; --navy-2:#0e2a47; --accent:#2dd4bf; --accent-soft:#0f3b3a;
+  --red:#f87171; --red-soft:#3b1414; --amber:#fbbf24; --amber-soft:#3a2a0a; --blue:#93c5fd; --blue-soft:#13254a;
+  --green:#4ade80; --green-soft:#0f2e1c; --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* Header */
+header.top{background:var(--navy);color:#fff;position:sticky;top:0;z-index:30}
+.top-inner{max-width:1400px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:.2px}
+.brand small{display:block;font-weight:400;font-size:12px;color:#9fb4cc}
+.top-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .btn.primary{color:#04201d}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#04201d}}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost-dark{background:transparent;border-color:#2c4a6b;color:#dbe7f5}
+.btn.ghost-dark:hover{border-color:#6b8bb0}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:5px 10px;font-size:13px}
+
+main{max-width:1400px;margin:0 auto;padding:18px 16px 60px}
+
+/* Upload zones */
+.zones{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:860px){.zones{grid-template-columns:1fr}}
+.zone{background:var(--surface);border:1.5px dashed var(--line);border-radius:var(--radius);padding:16px;cursor:pointer;transition:.15s;position:relative;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;min-height:150px}
+.zone:hover,.zone.drag{border-color:var(--accent);background:var(--surface-2)}
+.zone.loaded{border-style:solid}
+.zone.active{outline:2px solid var(--accent);outline-offset:1px}
+.zone-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.zone-title{font-weight:700;font-size:16px}
+.zone-sub{color:var(--ink-2);font-size:13px}
+.zone-file{font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zone input[type=file]{display:none}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:auto}
+.stat{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.stat b{display:block;font-size:17px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--ink-2)}
+.stat.red b{color:var(--red)} .stat.amber b{color:var(--amber)}
+.zone-empty{margin:auto 0;color:var(--ink-3);font-size:14px;display:flex;align-items:center;gap:8px}
+.pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2)}
+.pill.ok{background:var(--green-soft);color:var(--green);border-color:transparent}
+.zone-x{border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;border-radius:6px}
+.zone-x:hover{color:var(--red);background:var(--red-soft)}
+
+/* Total strip */
+.totalbar{margin:16px 0 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;box-shadow:var(--shadow)}
+.totalbar .t{display:flex;flex-direction:column;padding-right:18px;border-right:1px solid var(--line)}
+.totalbar .t:last-of-type{border-right:none}
+.totalbar .t b{font-size:18px;font-family:var(--mono)}
+.totalbar .t span{font-size:12px;color:var(--ink-2)}
+
+/* Tabs + toolbar */
+.tabs{display:flex;gap:4px;margin:22px 0 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{border:none;background:none;padding:10px 14px;cursor:pointer;color:var(--ink-2);font-weight:600;border-bottom:2.5px solid transparent;margin-bottom:-1px;white-space:nowrap;display:flex;gap:7px;align-items:center}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .cnt{font-size:11px;padding:1px 7px;border-radius:99px;background:var(--red-soft);color:var(--red)}
+.tab[disabled]{opacity:.5;cursor:default}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0 10px}
+.search{flex:1 1 240px;min-width:0;position:relative}
+.search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-3)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);padding:6px 11px;border-radius:99px;cursor:pointer;font-size:13px;color:var(--ink-2);font-weight:500}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip .n{font-family:var(--mono);opacity:.8;margin-left:4px}
+
+/* Table */
+.tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:auto;box-shadow:var(--shadow);max-height:calc(100vh - 200px)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+thead th{position:sticky;top:0;background:var(--surface-2);z-index:2;text-align:left;font-size:12px;font-weight:600;color:var(--ink-2);padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+thead th.r,td.r{text-align:right}
+thead th .arr{opacity:.5;font-size:10px}
+tbody td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:hover td{background:var(--surface-2)}
+tr.st-red td{background:color-mix(in srgb,var(--red-soft) 70%,transparent)}
+tr.st-red td:first-child{box-shadow:inset 4px 0 0 var(--red)}
+tr.st-amber td:first-child{box-shadow:inset 4px 0 0 var(--amber)}
+tr.has-order td.order-cell{background:color-mix(in srgb,var(--accent-soft) 60%,transparent)}
+tr.zero td{color:var(--ink-3)}
+tr.zero td.desc{color:var(--ink-2)}
+td.desc{min-width:220px;max-width:340px}
+td.desc .d{font-weight:500}
+td.code{font-family:var(--mono);font-size:13px;white-space:nowrap}
+.tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.tag{font-size:11px;padding:1px 7px;border-radius:5px;font-weight:600;white-space:nowrap}
+.tag.red{background:var(--red-soft);color:var(--red)}
+.tag.amber{background:var(--amber-soft);color:var(--amber)}
+.tag.blue{background:var(--blue-soft);color:var(--blue)}
+.tag.teal{background:var(--accent-soft);color:var(--accent)}
+.tag.grey{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}
+.su-in{width:60px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;background:var(--surface);text-align:right;font-family:var(--mono)}
+.su-in.missing{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.su-in.missing::placeholder{color:var(--red);font-weight:600}
+.qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.qty button{border:none;background:var(--surface-2);width:28px;height:32px;cursor:pointer;font-size:16px;color:var(--ink-2)}
+.qty button:hover{background:var(--line);color:var(--ink)}
+.qty input{width:58px;border:none;text-align:center;height:32px;font-family:var(--mono);font-weight:600;font-size:15px;background:transparent}
+.qty.manual{border-color:var(--blue)}
+.qty .u{font-size:10px;color:var(--ink-3);padding:0 6px 0 0;white-space:nowrap}
+input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.sug{font-size:11px;color:var(--ink-3)}
+.empty-state{padding:50px 20px;text-align:center;color:var(--ink-2)}
+.empty-state h3{margin:0 0 6px;color:var(--ink)}
+.calc-note{font-size:11px;color:var(--ink-3);white-space:nowrap}
+
+/* Overview */
+.ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 10px;font-size:15px}
+.card ol,.card ul{margin:0;padding-left:18px}
+.card li{margin:4px 0;font-size:14px}
+.card .muted{color:var(--ink-2);font-size:13px}
+.rule-list li{list-style:none;margin-left:-18px;padding:6px 0;border-bottom:1px solid var(--line)}
+.rule-list li:last-child{border-bottom:none}
+.toplist{list-style:none;padding:0 !important}
+.toplist li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:6px 0;margin:0}
+.toplist li:last-child{border-bottom:none}
+.toplist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.toplist .num,.toplist .tag{white-space:nowrap;flex-shrink:0}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(5,12,24,.55);display:none;align-items:flex-start;justify-content:center;z-index:50;padding:40px 16px;overflow:auto}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);border-radius:14px;max-width:640px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);border:1px solid var(--line)}
+.modal header{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.modal header h2{margin:0;font-size:17px}
+.modal .body{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.modal footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:13px;font-weight:600}
+.field .help{font-size:12px;color:var(--ink-2)}
+.field input[type=number],.field input[type=text],.field select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:560px){.row3{grid-template-columns:1fr}}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.warn{background:var(--amber-soft);color:var(--amber);padding:10px 12px;border-radius:9px;font-size:13px}
+.danger{background:var(--red-soft);color:var(--red);padding:10px 12px;border-radius:9px;font-size:13px}
+.rules-table{width:100%;font-size:13px}
+.rules-table td,.rules-table th{padding:4px;border-bottom:1px solid var(--line);text-align:left}
+.rules-table input{width:100%;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.rules-table input[type=number]{width:64px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;opacity:0;transition:.2s;z-index:60;font-size:14px;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);margin:6px 0 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.soon{border:1.5px dashed var(--line);border-radius:var(--radius);padding:30px;text-align:center;color:var(--ink-2);margin-top:14px;background:var(--surface)}
+
+@media print{
+  header.top,.zones,.totalbar,.tabs,.toolbar,.legend,.qty button,.no-print{display:none !important}
+  body{background:#fff;color:#000;font-size:11px}
+  .tablewrap{max-height:none;overflow:visible;box-shadow:none;border:none}
+  thead th{position:static}
+  tr.zero{display:none}
+  .qty{border:none} .qty input{width:auto}
+  .print-title{display:block !important;font-size:16px;font-weight:700;margin-bottom:8px}
+}
+.print-title{display:none}
+/* ---------- Varemodtagelse ---------- */
+.rx-top{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:14px;margin-top:14px}
+@media (max-width:860px){.rx-top{grid-template-columns:1fr}}
+.rx-zone{min-height:130px}
+.inv-list{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.inv{flex:0 0 auto;min-width:200px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;cursor:pointer;box-shadow:var(--shadow);text-align:left;display:flex;flex-direction:column;gap:4px}
+.inv:hover{border-color:var(--ink-3)}
+.inv.on{outline:2px solid var(--accent);outline-offset:-1px}
+.inv .no{font-family:var(--mono);font-weight:600;font-size:15px}
+.inv .meta{font-size:12px;color:var(--ink-2)}
+.inv .val{font-family:var(--mono);font-size:16px;font-weight:600}
+.inv .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.inv.all{background:var(--surface-2)}
+.rx-table td.chk,.rx-table th.chk{width:34px;text-align:center}
+.rx-table input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);cursor:pointer}
+.rx-table tr.off td{color:var(--ink-3);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink-3) 60%,transparent)}
+.rx-table tr.off td.chk,.rx-table tr.off td .tag{text-decoration:none}
+.rx-table thead tr.f th{top:37px;padding:4px 6px;background:var(--surface);cursor:default}
+.rx-table thead tr.f input{width:100%;min-width:60px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px;background:var(--surface);font-weight:400}
+.rx-table thead tr.f input.act{border-color:var(--accent);background:var(--accent-soft)}
+.rx-table tfoot td{position:sticky;bottom:0;background:var(--surface-2);font-weight:600;border-top:1px solid var(--line);padding:8px 10px}
+.csv-preview{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;white-space:pre;overflow:auto;max-height:140px}
+.rx-top>*{min-width:0}
+.row3 input{min-width:0;width:100%}
+.seg{align-self:flex-start;display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg label{padding:6px 10px;cursor:pointer;font-size:13px;border-right:1px solid var(--line)}
+.seg label:last-child{border-right:none}
+.seg input{display:none}
+.seg label:has(input:checked){background:var(--ink);color:var(--bg)}
+
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#123559"/><path d="M6 19h20l-3 6H9z" fill="#14b8a6"/><path d="M15 6v12M15 6l7 9h-7" stroke="#fff" stroke-width="2" fill="none"/></svg>
+      <div>Shop Bestilling<small id="weekLabel">Winpos → Order Heinemann</small></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost-dark" id="btnSettings" title="Indstillinger">⚙ Indstillinger</button>
+      <button class="btn ghost-dark" id="btnPrint" title="Print / PDF af aktiv liste">🖨 Print</button>
+      <button class="btn primary" id="btnExport">⬇ Eksportér Order Heinemann</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="zones" id="zones"></section>
+
+  <div class="totalbar" id="totalbar"></div>
+
+  <nav class="tabs" id="tabs"></nav>
+  <div id="view"></div>
+</main>
+
+<!-- Export modal -->
+<div class="modal-bg" id="mExport"><div class="modal" role="dialog" aria-labelledby="mExportT">
+  <header><h2 id="mExportT">Eksportér til Order Heinemann</h2><button class="zone-x" data-close>×</button></header>
+  <div class="body" id="exportBody"></div>
+  <footer>
+    <button class="btn" id="btnCopy">Kopiér linjer</button>
+    <button class="btn" data-close>Annullér</button>
+    <button class="btn primary" id="btnDoExport">Download .xlsx</button>
+  </footer>
+</div></div>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="mSettings"><div class="modal" role="dialog" aria-labelledby="mSetT">
+  <header><h2 id="mSetT">Indstillinger</h2><button class="zone-x" data-close>×</button></header>
+  <div class="body" id="settingsBody"></div>
+  <footer>
+    <button class="btn" id="btnBackup">Gem backup (.json)</button>
+    <label class="btn">Indlæs backup<input type="file" id="inRestore" accept=".json" hidden></label>
+    <button class="btn" id="btnResetSet">Nulstil standard</button>
+    <button class="btn primary" id="btnSaveSet">Gem</button>
+  </footer>
+</div></div>
+
+<!-- CSV export modal (varemodtagelse) -->
+<div class="modal-bg" id="mCsv"><div class="modal" role="dialog" aria-labelledby="mCsvT">
+  <header><h2 id="mCsvT">Eksportér CSV til Winpos</h2><button class="zone-x" data-close>×</button></header>
+  <div class="body" id="csvBody"></div>
+  <footer>
+    <button class="btn" data-close>Annullér</button>
+    <button class="btn primary" id="btnDoCsv">Download CSV</button>
+  </footer>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   Shop Bestilling — én fil, kører på GitHub Pages.
+   Læser Winpos-eksporter (.xls/.xlsx) for LTC, Perfume, Andet,
+   beregner bestilling og eksporterer til "Order Heinemann".
+   ========================================================= */
+'use strict';
+
+const CATS = {
+  ltc:     { key:'ltc',     name:'LTC',     sub:'Slik, drikke, vin & spiritus', suMode:'strict'  },
+  perfume: { key:'perfume', name:'Perfume', sub:'Parfume & kosmetik',            suMode:'none'    },
+  andet:   { key:'andet',   name:'Andet',   sub:'Ure, legetøj, tilbehør',        suMode:'numeric' },
+};
+const CAT_KEYS = Object.keys(CATS);
+
+const DEFAULT_SETTINGS = {
+  minShelf: { ltc:0, perfume:4, andet:4 },
+  rounding: 'nearest',          // 'nearest' = tættest på (15→12, 20→24) · 'up' = altid op
+  rules: [
+    { match:'coca cola',   cats:'ltc', factor:24, fixed:99, threshold:99, unit:'kasser',  note:'1 = 24 dåser. Bestilles altid i 99 kasser når nødvendigt.' },
+    { match:'fanta',       cats:'ltc', factor:24, fixed:99, threshold:99, unit:'kasser',  note:'1 = 24 dåser. Bestilles altid i 99 kasser når nødvendigt.' },
+    { match:'capri sonne', cats:'ltc', factor:4,  fixed:0,  threshold:0,  unit:'kolli',   note:'1 = 40 stk (lager tælles i 10-pakker → 4 pakker).' },
+  ],
+};
+
+/* ---------- Storage (sikkert, virker også hvis blokeret) ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} },
+};
+const K_SET='sb_settings_v1', K_SU='sb_su_memory_v1', K_SES='sb_session_v1';
+
+let settings = Object.assign(structuredClone(DEFAULT_SETTINGS), store.get(K_SET, {}));
+let suMemory = store.get(K_SU, {});       // { code: su } — huskes uge til uge
+let session  = store.get(K_SES, null) || { data:{}, overrides:{ ltc:{}, perfume:{}, andet:{} } };
+for (const c of CAT_KEYS) session.overrides[c] = session.overrides[c] || {};
+
+const ui = { tab:'overblik', filter:'all', q:'', sort:{ key:null, dir:1 } };
+
+/* ---------- Hjælpere ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (n, d=0) => (n==null || isNaN(n)) ? '–' : Number(n).toLocaleString('da-DK',{minimumFractionDigits:d,maximumFractionDigits:d});
+const eur = n => fmt(n,2) + ' €';
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/** Læser tal fra Winpos-celler: 46, "46 Stk", "9.872 0,33ltr" (punktum = tusind), "2,5" */
+function parseNum(v){
+  if (v==null || v==='') return null;
+  if (typeof v === 'number') return v;
+  const m = String(v).replace(/ /g,' ').trim().match(/^-?[\d.,]+/);
+  if (!m) return null;
+  let s = m[0];
+  if (s.includes(',')) s = s.replace(/\./g,'').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+/** Sekundær enhed tæller kun som rent tal (12, 24 …). "Stk", "0,75ltr", "40xStk" ignoreres. */
+function parseSU(v){
+  if (v==null || v==='') return null;
+  if (typeof v === 'number') return v > 0 ? v : null;
+  const s = String(v).trim();
+  return /^\d+$/.test(s) && +s > 0 ? +s : null;
+}
+function detectWeek(name){
+  const m = String(name||'').match(/(?:week|uge|wk|w)[\s_-]*(\d{1,2})/i);
+  return m ? +m[1] : null;
+}
+function isoWeek(d=new Date()){
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  return Math.ceil(((t - y0) / 86400000 + 1) / 7);
+}
+function guessCat(name){
+  const n = String(name||'').toLowerCase();
+  if (/ltc/.test(n)) return 'ltc';
+  if (/perfum|parfum/.test(n)) return 'perfume';
+  if (/andet|other|misc/.test(n)) return 'andet';
+  return null;
+}
+
+/* ---------- Indlæsning af Winpos-fil ---------- */
+function parseWinpos(aoa){
+  // Find kolonne-overskrifterne (rækken med "Code" og "Description")
+  let h = -1;
+  for (let i=0;i<Math.min(aoa.length,60);i++){
+    const r = (aoa[i]||[]).map(x => String(x??'').trim().toLowerCase());
+    if (r.includes('code') && r.includes('description')) { h=i; break; }
+  }
+  if (h<0) throw new Error('Kunne ikke finde kolonnerne "Code" og "Description" i filen.');
+  const head = aoa[h].map(x => String(x??'').trim().toLowerCase());
+  const col = (...names) => { for (const n of names){ const i=head.indexOf(n); if(i>=0) return i; } return -1; };
+  const C = {
+    code:  col('code'),
+    desc:  col('description'),
+    sold:  col('quantity'),                       // første "Quantity" = solgt
+    stock: col('new stock','in stock','stock'),
+    price: col('purchase price eur','purchase price'),
+    su:    col('secondary unit'),
+    art:   col('artikel nr','artikel nr.','article no','customer article no.'),
+    unit:  col('unit'),
+  };
+  const missing = ['code','desc','sold','stock'].filter(k => C[k]<0);
+  if (missing.length) throw new Error('Mangler kolonner: ' + missing.join(', '));
+
+  // Metadata over overskriften (Print date, Supplier …)
+  const meta = {};
+  for (let i=0;i<h;i++){ const r=aoa[i]||[]; const k=String(r[1]??'').trim(); if(k && r[2]!=null) meta[k]=String(r[2]).trim(); }
+
+  const rows = [];
+  for (let i=h+1;i<aoa.length;i++){
+    const r = aoa[i]||[];
+    const code = r[C.code];
+    if (code==null || String(code).trim()==='') continue;
+    const desc = String(r[C.desc]??'').replace(/ /g,' ').trim();
+    if (!desc) continue;
+    rows.push({
+      code: String(code).trim(),
+      desc,
+      sold:  parseNum(r[C.sold]) ?? 0,
+      stock: parseNum(r[C.stock]) ?? 0,
+      stockRaw: String(r[C.stock]??'').trim(),
+      price: C.price>=0 ? (parseNum(r[C.price]) ?? 0) : 0,
+      suRaw: C.su>=0 ? (r[C.su]==null ? '' : String(r[C.su]).trim()) : '',
+      art:   C.art>=0 ? (r[C.art]==null ? '' : String(r[C.art]).trim()) : '',
+      unit:  C.unit>=0 ? String(r[C.unit]??'').trim() : '',
+    });
+  }
+  return { meta, rows };
+}
+
+/* ---------- Beregning ---------- */
+function roundTo(x, step, mode){
+  if (x<=0) return 0;
+  return (mode==='up' ? Math.ceil(x/step) : Math.round(x/step)) * step;
+}
+function findRule(cat, desc){
+  const d = desc.toLowerCase();
+  return settings.rules.find(r => r.match && (!r.cats || r.cats.split(',').map(s=>s.trim()).includes(cat)) && d.includes(r.match.toLowerCase().trim())) || null;
+}
+
+/** Returnerer beregnet linje: reel lager, sek. enhed, forslag, endelig, flag */
+function calc(cat, row){
+  const real = row.stock - row.sold;
+  const min = +settings.minShelf[cat] || 0;
+  const flags = [];
+  let su = 1, suSource = 'none', sug = 0, unitLabel = 'stk', rule = null, why = '';
+
+  if (real < 0) flags.push({c:'amber', t:'Solgt mere end lager'});
+
+  rule = findRule(cat, row.desc);
+  if (rule){
+    const f = +rule.factor || 1;
+    unitLabel = rule.unit || 'kolli';
+    su = 1; suSource = 'rule';
+    const realU = real / f;
+    if (+rule.fixed > 0){
+      sug = realU < (+rule.threshold || 0) ? +rule.fixed : 0;
+      why = `Reel ${fmt(realU,1)} ${unitLabel} ${sug ? '<' : '≥'} ${rule.threshold} → ${sug ? 'bestil '+rule.fixed : 'ingen'}`;
+    } else {
+      sug = roundTo(row.sold / f, 1, settings.rounding);
+      why = `Solgt ${fmt(row.sold)} ÷ ${f} = ${fmt(row.sold/f,2)} → ${sug}`;
+    }
+    flags.push({c:'teal', t:`Regel: 1 = ${f}`});
+  } else {
+    const mode = CATS[cat].suMode;
+    if (mode !== 'none'){
+      const fromFile = parseSU(row.suRaw);
+      const mem = suMemory[row.code];
+      if (mem){ su = mem; suSource = 'memory'; }
+      else if (fromFile){ su = fromFile; suSource = 'file'; }
+      else if (mode === 'strict'){ su = 1; suSource = 'missing'; flags.unshift({c:'red', t:'Mangler sek. enhed'}); }
+      else { su = 1; suSource = 'ignored'; }
+    }
+    sug = roundTo(row.sold, su, settings.rounding);
+    why = su>1 ? `Solgt ${fmt(row.sold)} → nærmeste ${su}-tal = ${sug}` : `Erstat solgt = ${sug}`;
+    if (min > 0 && real + sug < min){
+      const need = Math.ceil((min - real) / su) * su;
+      if (need > sug){ sug = need; why += ` · min. ${min} på hylde → ${sug}`; }
+    }
+  }
+  sug = Math.max(0, sug);
+
+  const ov = session.overrides[cat][row.code];
+  const manual = ov != null && ov !== '' && !isNaN(ov);
+  const final = manual ? Math.max(0, +ov) : sug;
+  if (manual) flags.push({c:'blue', t:`Rettet (forslag ${sug})`});
+  if (!rule && row.sold > 0 && real + final <= 0) flags.push({c:'amber', t:'Hylden bliver tom'});
+  if (suSource === 'memory') flags.push({c:'grey', t:'Sek. enhed husket'});
+
+  const status = flags.some(f=>f.c==='red') ? 'red' : flags.some(f=>f.c==='amber') ? 'amber' : 'ok';
+  return { real, su, suSource, sug, final, manual, unitLabel, rule, why, flags, status, value: final * (row.price||0) };
+}
+
+function computed(cat){
+  const d = session.data[cat];
+  if (!d) return [];
+  return d.rows.map((r,i) => Object.assign({ i }, r, calc(cat, r)));
+}
+function summary(cat){
+  const L = computed(cat);
+  return {
+    lines: L.length,
+    order: L.filter(x=>x.final>0).length,
+    units: L.reduce((a,x)=>a+x.final,0),
+    value: L.reduce((a,x)=>a+x.value,0),
+    red:   L.filter(x=>x.status==='red').length,
+    amber: L.filter(x=>x.status==='amber').length,
+    list: L,
+  };
+}
+
+/* ---------- Fil-upload ---------- */
+async function loadFile(cat, file){
+  if (typeof XLSX === 'undefined'){ toast('Excel-læseren kunne ikke indlæses (kræver internet første gang).'); return; }
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:null });
+    const { meta, rows } = parseWinpos(aoa);
+    if (!rows.length) throw new Error('Ingen varelinjer fundet.');
+    const g = guessCat(file.name);
+    if (g && g !== cat && !confirm(`Filnavnet "${file.name}" ligner ${CATS[g].name}, men du har lagt den i ${CATS[cat].name}. Fortsæt?`)) return;
+    session.data[cat] = { fileName:file.name, meta, rows, week: detectWeek(file.name), loadedAt: Date.now() };
+    session.overrides[cat] = {};
+    saveSession();
+    ui.tab = cat; ui.filter = 'all'; ui.q = '';
+    render();
+    const s = summary(cat);
+    toast(`${CATS[cat].name}: ${s.lines} linjer indlæst · ${s.order} skal bestilles${s.red ? ' · '+s.red+' skal tjekkes' : ''}`);
+  }catch(e){
+    console.error(e); alert('Kunne ikke læse filen:\n' + e.message);
+  }
+}
+function saveSession(){ store.set(K_SES, session); }
+
+/* ---------- Render ---------- */
+function currentWeek(){
+  for (const c of CAT_KEYS){ const w = session.data[c]?.week; if (w) return w; }
+  return isoWeek();
+}
+
+function renderZones(){
+  $('#zones').innerHTML = CAT_KEYS.map(c => {
+    const d = session.data[c], C = CATS[c];
+    let inner;
+    if (d){
+      const s = summary(c);
+      inner = `
+        <div class="zone-file" title="${esc(d.fileName)}">📄 ${esc(d.fileName)}${d.meta['Print date'] ? ' · ' + esc(d.meta['Print date']) : ''}</div>
+        <div class="stats">
+          <div class="stat"><b>${s.lines}</b><span>linjer</span></div>
+          <div class="stat"><b>${s.order}</b><span>bestil</span></div>
+          <div class="stat ${s.red?'red':''}"><b>${s.red}</b><span>tjek</span></div>
+          <div class="stat ${s.amber?'amber':''}"><b>${s.amber}</b><span>advarsel</span></div>
+        </div>`;
+    } else {
+      inner = `<div class="zone-empty">⬆ Klik eller træk ${C.name}-filen hertil (.xls / .xlsx)</div>`;
+    }
+    return `<label class="zone ${d?'loaded':''} ${ui.tab===c?'active':''}" data-cat="${c}">
+      <div class="zone-head">
+        <div><div class="zone-title">${C.name}</div><div class="zone-sub">${C.sub}</div></div>
+        ${d ? `<span style="display:flex;gap:4px;align-items:center"><span class="pill ok">Indlæst</span><button class="zone-x" data-clear="${c}" title="Fjern fil">×</button></span>` : `<span class="pill">Mangler</span>`}
+      </div>
+      ${inner}
+      <input type="file" accept=".xls,.xlsx,.csv" data-in="${c}">
+    </label>`;
+  }).join('');
+}
+
+function renderTotal(){
+  const S = CAT_KEYS.filter(c=>session.data[c]).map(summary);
+  const el = $('#totalbar');
+  if (!S.length){ el.innerHTML = `<span style="color:var(--ink-2)">Upload ugens Winpos-filer ovenfor for at komme i gang. Alt bliver på din egen computer – intet sendes nogen steder hen.</span>`; return; }
+  const sum = k => S.reduce((a,s)=>a+s[k],0);
+  el.innerHTML = `
+    <div class="t"><b>Uge ${currentWeek()}</b><span>bestilling</span></div>
+    <div class="t"><b>${sum('order')}</b><span>linjer til bestilling</span></div>
+    <div class="t"><b>${fmt(sum('units'))}</b><span>enheder i alt</span></div>
+    <div class="t"><b>${eur(sum('value'))}</b><span>indkøbsværdi</span></div>
+    <div class="t"><b style="color:${sum('red')?'var(--red)':'inherit'}">${sum('red')}</b><span>skal tjekkes (rød)</span></div>`;
+  $('#weekLabel').textContent = `Uge ${currentWeek()} · Winpos → Order Heinemann`;
+}
+
+function renderTabs(){
+  const tabs = [['overblik','Overblik']].concat(CAT_KEYS.map(c=>[c, CATS[c].name])).concat([['modtag','Varemodtagelse']]);
+  $('#tabs').innerHTML = tabs.map(([k,n]) => {
+    let cnt = '';
+    if (CATS[k] && session.data[k]){ const r = summary(k).red; if (r) cnt = `<span class="cnt">${r}</span>`; }
+    const dis = CATS[k] && !session.data[k];
+    return `<button class="tab ${ui.tab===k?'on':''}" data-tab="${k}" ${dis?'disabled':''}>${n}${cnt}</button>`;
+  }).join('');
+}
+
+function renderOverview(){
+  const loaded = CAT_KEYS.filter(c=>session.data[c]);
+  const rulesHtml = `
+    <div class="card"><h3>Sådan regner appen</h3>
+      <ul class="rule-list">
+        <li><b>Reel lager</b> = Lager (New stock) − Solgt (Quantity).</li>
+        <li><b>LTC</b>: Solgt rundes til nærmeste sekundære enhed (12 → 12, 24, 36 …). 15 solgt / enhed 12 → <b>12</b>; 20 solgt → <b>24</b>. Mangler enheden, bliver linjen <span class="tag red">rød</span>.</li>
+        <li><b>Perfume</b>: Ingen sekundær enhed. Bestil det solgte, men mindst så der står <b>${settings.minShelf.perfume}</b> på hylden.</li>
+        <li><b>Andet</b>: Min. <b>${settings.minShelf.andet}</b> på hylden. Sekundær enhed bruges kun hvis feltet er et rent tal (ikke "Stk", "0,75ltr" osv.).</li>
+        ${settings.rules.map(r=>`<li><span class="tag teal">${esc(r.match)}</span> ${esc(r.note||'')}</li>`).join('')}
+        <li class="muted">Afrunding: ${settings.rounding==='up'?'altid op':'til nærmeste'} · ret i ⚙ Indstillinger.</li>
+      </ul>
+    </div>`;
+  if (!loaded.length){
+    $('#view').innerHTML = `<div class="ov-grid">${rulesHtml}
+      <div class="card"><h3>Arbejdsgang</h3><ol>
+        <li>Eksportér LTC, Perfume og Andet fra Winpos som Excel.</li>
+        <li>Træk hver fil ind i sin boks ovenfor.</li>
+        <li>Gennemgå kun de <span class="tag red">røde</span> og <span class="tag amber">gule</span> linjer – resten er regnet ud.</li>
+        <li>Ret antal direkte i "Bestil"-feltet (Enter hopper til næste).</li>
+        <li>Tryk <b>Eksportér Order Heinemann</b>.</li></ol>
+        <p class="muted">Sekundære enheder du skriver ind, huskes til næste uge.</p></div></div>`;
+    return;
+  }
+  const cards = loaded.map(c => {
+    const s = summary(c);
+    const top = s.list.filter(x=>x.final>0).sort((a,b)=>b.value-a.value).slice(0,6);
+    const attention = s.list.filter(x=>x.status!=='ok').slice(0,6);
+    return `<div class="card">
+      <h3>${CATS[c].name} <span class="muted" style="font-weight:400">· ${s.order} af ${s.lines} linjer · ${eur(s.value)}</span></h3>
+      ${attention.length ? `<div class="muted" style="margin-bottom:4px">Kræver opmærksomhed</div><ul class="toplist">${attention.map(x=>`<li><span class="nm">${esc(x.desc)}</span><span class="tag ${x.status==='red'?'red':'amber'}">${esc(x.flags.find(f=>f.c===x.status)?.t)}</span></li>`).join('')}</ul>
+        ${s.red+s.amber>6?`<div class="muted">+ ${s.red+s.amber-6} flere…</div>`:''}` : `<div class="tag teal" style="display:inline-block">Ingen linjer kræver tjek ✓</div>`}
+      <div class="muted" style="margin:12px 0 4px">Største bestillinger (værdi)</div>
+      <ul class="toplist">${top.map(x=>`<li><span class="nm">${esc(x.desc)}</span><span class="num">${x.final} ${x.unitLabel} · ${eur(x.value)}</span></li>`).join('') || '<li class="muted">Intet at bestille</li>'}</ul>
+      <div style="margin-top:12px"><button class="btn sm" data-tab="${c}">Åbn ${CATS[c].name} →</button></div>
+    </div>`;
+  }).join('');
+  $('#view').innerHTML = `<div class="ov-grid">${cards}${rulesHtml}</div>`;
+}
+
+function sortRows(L){
+  const { key, dir } = ui.sort;
+  if (!key) return L;
+  const get = {
+    code:x=>+x.code||x.code, art:x=>+x.art||x.art, desc:x=>x.desc.toLowerCase(), sold:x=>x.sold, stock:x=>x.stock,
+    real:x=>x.real, su:x=>x.su, price:x=>x.price, final:x=>x.final, value:x=>x.value,
+    status:x=>({red:0,amber:1,ok:2})[x.status],
+  }[key];
+  return L.slice().sort((a,b)=>{ const A=get(a),B=get(b); return (A>B?1:A<B?-1:0)*dir; });
+}
+
+function renderCat(cat){
+  const all = computed(cat);
+  const q = ui.q.trim().toLowerCase();
+  const counts = {
+    all: all.length,
+    order: all.filter(x=>x.final>0).length,
+    check: all.filter(x=>x.status!=='ok').length,
+    red: all.filter(x=>x.status==='red').length,
+    manual: all.filter(x=>x.manual).length,
+    zero: all.filter(x=>x.final===0).length,
+  };
+  let L = all.filter(x => {
+    if (ui.filter==='order' && !(x.final>0)) return false;
+    if (ui.filter==='check' && x.status==='ok') return false;
+    if (ui.filter==='red' && x.status!=='red') return false;
+    if (ui.filter==='manual' && !x.manual) return false;
+    if (ui.filter==='zero' && x.final!==0) return false;
+    if (q && !(x.desc.toLowerCase().includes(q) || x.code.includes(q) || x.art.includes(q))) return false;
+    return true;
+  });
+  L = sortRows(L);
+  const showSU = CATS[cat].suMode !== 'none';
+  const chip = (k,n) => `<button class="chip ${ui.filter===k?'on':''}" data-filter="${k}">${n}<span class="n">${counts[k]}</span></button>`;
+  const th = (k,n,cls='') => `<th class="${cls}" data-sort="${k}">${n} ${ui.sort.key===k?`<span class="arr">${ui.sort.dir>0?'▲':'▼'}</span>`:''}</th>`;
+  const d = session.data[cat];
+
+  $('#view').innerHTML = `
+    <div class="print-title">${CATS[cat].name} – bestilling uge ${currentWeek()} (${esc(d.fileName)})</div>
+    <div class="toolbar">
+      <div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Søg varenavn, Code eller Artikel Nr…" value="${esc(ui.q)}"></div>
+      <div class="chips">
+        ${chip('all','Alle')}${chip('order','Skal bestilles')}${chip('check','Tjek')}${chip('red','Kun røde')}${chip('manual','Rettet')}${chip('zero','Ingen bestilling')}
+      </div>
+      <button class="btn sm no-print" id="btnResetOv" ${counts.manual?'':'disabled'} title="Fjern alle manuelle rettelser i denne kategori">↺ Nulstil rettelser</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          ${th('status','')}${th('code','Code')}${th('art','Artikel Nr')}${th('desc','Beskrivelse')}
+          ${th('sold','Solgt','r')}${th('stock','Lager','r')}${th('real','Reel lager','r')}
+          ${showSU ? th('su','Sek. enhed','r') : ''}
+          ${th('price','Pris EUR','r')}${th('final','Bestil','r')}${th('value','Værdi','r')}
+        </tr></thead>
+        <tbody>
+          ${L.map(x => rowHtml(cat, x, showSU)).join('') || `<tr><td colspan="11"><div class="empty-state"><h3>Ingen linjer</h3>Ingen varer matcher filteret.</div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--red)"></i>Rød: mangler sekundær enhed – skal tjekkes</span>
+      <span><i style="background:var(--amber)"></i>Gul: solgt mere end lager / hylden bliver tom</span>
+      <span><i style="background:var(--blue)"></i>Blå: manuelt rettet</span>
+      <span><i style="background:var(--accent)"></i>Særregel (Cola, Fanta, Capri Sonne …)</span>
+    </div>`;
+}
+
+function rowHtml(cat, x, showSU){
+  const step = x.su || 1;
+  const suCell = !showSU ? '' : (x.rule
+    ? `<td class="r"><span class="calc-note">1 = ${x.rule.factor}</span></td>`
+    : `<td class="r"><input class="su-in ${x.suSource==='missing'?'missing':''}" data-su="${esc(x.code)}" inputmode="numeric"
+         value="${x.suSource==='missing' || x.suSource==='ignored' ? '' : x.su}" placeholder="${x.suSource==='missing'?'?':'–'}"
+         title="${x.suSource==='ignored' ? 'Fil: '+esc(x.suRaw)+' (ikke et tal – ignoreres)' : x.suSource==='file' ? 'Fra Winpos' : x.suSource==='memory' ? 'Husket fra tidligere (fil: '+esc(x.suRaw||'tom')+')' : 'Skriv antal pr. kolli – huskes til næste gang'}"></td>`);
+  return `<tr class="st-${x.status} ${x.final>0?'has-order':'zero'}" data-code="${esc(x.code)}">
+    <td title="${x.status}">${x.status==='red'?'🔴':x.status==='amber'?'🟡':''}</td>
+    <td class="code">${esc(x.code)}</td>
+    <td class="code">${esc(x.art)}</td>
+    <td class="desc"><div class="d">${esc(x.desc)}</div>
+      <div class="tags">${x.flags.map(f=>`<span class="tag ${f.c}">${esc(f.t)}</span>`).join('')}<span class="calc-note">${esc(x.why)}</span></div></td>
+    <td class="r num">${fmt(x.sold)}</td>
+    <td class="r num" title="${esc(x.stockRaw)}">${fmt(x.stock)}</td>
+    <td class="r num" style="${x.real<0?'color:var(--red);font-weight:600':''}">${fmt(x.real)}</td>
+    ${suCell}
+    <td class="r num">${fmt(x.price,2)}</td>
+    <td class="r order-cell"><span class="qty ${x.manual?'manual':''}">
+      <button data-step="-${step}" data-code="${esc(x.code)}" tabindex="-1" aria-label="Mindre">−</button>
+      <input data-qty="${esc(x.code)}" inputmode="numeric" value="${x.final}">
+      ${x.rule ? `<span class="u">${esc(x.unitLabel)}</span>` : ''}
+      <button data-step="${step}" data-code="${esc(x.code)}" tabindex="-1" aria-label="Mere">+</button></span>
+      ${x.manual?`<div class="sug">forslag ${x.sug}</div>`:''}</td>
+    <td class="r num">${x.final>0?eur(x.value):'–'}</td>
+  </tr>`;
+}
+
+function render(){
+  const rx = ui.tab==='modtag';
+  $('#zones').style.display = rx ? 'none' : '';
+  $('#totalbar').style.display = rx ? 'none' : '';
+  renderZones(); renderTotal(); renderTabs();
+  if (CATS[ui.tab] && !session.data[ui.tab]) ui.tab = 'overblik';
+  if (ui.tab==='overblik') renderOverview();
+  else if (ui.tab==='modtag') renderReceive();
+  else renderCat(ui.tab);
+}
+
+/* ---------- Hændelser ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-tab],[data-filter],[data-sort],[data-step],[data-clear],[data-close],#btnResetOv');
+  if (!t) return;
+  if (t.dataset.clear){ e.preventDefault(); if(confirm(`Fjern ${CATS[t.dataset.clear].name}-filen?`)){ delete session.data[t.dataset.clear]; session.overrides[t.dataset.clear]={}; saveSession(); render(); } return; }
+  if (t.dataset.close!=null){ t.closest('.modal-bg').classList.remove('show'); return; }
+  if (t.dataset.tab){ ui.tab=t.dataset.tab; ui.filter='all'; ui.q=''; ui.sort={key:null,dir:1}; render(); window.scrollTo({top:0}); return; }
+  if (t.dataset.filter){ ui.filter=t.dataset.filter; render(); return; }
+  if (t.dataset.sort){ const k=t.dataset.sort; ui.sort = ui.sort.key===k ? {key:k,dir:-ui.sort.dir} : {key:k,dir:(['desc','code','art'].includes(k)?1:-1)}; render(); return; }
+  if (t.dataset.step){
+    const cat=ui.tab, code=t.dataset.code, x=computed(cat).find(r=>r.code===code);
+    setOverride(cat, code, Math.max(0, x.final + (+t.dataset.step)));
+    return;
+  }
+  if (t.id==='btnResetOv'){ session.overrides[ui.tab]={}; saveSession(); render(); toast('Rettelser nulstillet'); }
+});
+
+// Zone: klik + træk-og-slip
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.in && t.files[0]){ loadFile(t.dataset.in, t.files[0]); t.value=''; return; }
+  if (t.dataset.qty!=null){ setOverride(ui.tab, t.dataset.qty, t.value); return; }
+  if (t.dataset.su!=null){
+    const v = parseSU(t.value);
+    if (t.value.trim()==='' ){ delete suMemory[t.dataset.su]; }
+    else if (!v){ toast('Sekundær enhed skal være et helt tal'); render(); return; }
+    else suMemory[t.dataset.su] = v;
+    store.set(K_SU, suMemory);
+    // nulstil evt. manuel rettelse så forslaget genberegnes
+    delete session.overrides[ui.tab][t.dataset.su]; saveSession();
+    renderKeepFocus(t);
+    toast(v ? `Sekundær enhed ${v} gemt – huskes næste uge` : 'Sekundær enhed fjernet');
+  }
+});
+document.addEventListener('input', e => { if (e.target.id==='q'){ ui.q=e.target.value; const pos=e.target.selectionStart; renderCat(ui.tab); const q=$('#q'); q.focus(); q.setSelectionRange(pos,pos);} });
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (e.key==='Enter' && (t.dataset.qty!=null || t.dataset.su!=null)){
+    e.preventDefault();
+    const attr = t.dataset.qty!=null ? 'data-qty' : 'data-su';
+    const list = [...document.querySelectorAll(`[${attr}]`)];
+    const idx = list.indexOf(t);
+    const nextCode = list[idx + (e.shiftKey?-1:1)]?.getAttribute(attr);
+    t.blur();   // udløser change → render
+    const nxt = nextCode!=null && document.querySelector(`[${attr}="${CSS.escape(nextCode)}"]`);
+    if (nxt){ nxt.focus(); nxt.select(); }
+  }
+  if (e.key==='Escape') document.querySelectorAll('.modal-bg.show').forEach(m=>m.classList.remove('show'));
+});
+function setOverride(cat, code, val){
+  const row = session.data[cat].rows.find(r=>r.code===code);
+  const sug = calc(cat, Object.assign({}, row)).sug;
+  const n = parseInt(val,10);
+  if (val==='' || isNaN(n) || n===sug) delete session.overrides[cat][code];
+  else session.overrides[cat][code] = Math.max(0,n);
+  saveSession();
+  renderKeepFocus();
+}
+function renderKeepFocus(){
+  const a = document.activeElement;
+  const sel = a && (a.dataset?.qty!=null ? `[data-qty="${CSS.escape(a.dataset.qty)}"]` : a.dataset?.su!=null ? `[data-su="${CSS.escape(a.dataset.su)}"]` : null);
+  const scroller = document.querySelector('.tablewrap'); const st = scroller?.scrollTop;
+  render();
+  const s2 = document.querySelector('.tablewrap'); if (s2 && st!=null) s2.scrollTop = st;
+  if (sel){ const n=document.querySelector(sel); if(n){ n.focus(); } }
+}
+
+['dragenter','dragover'].forEach(ev => document.addEventListener(ev, e => {
+  e.preventDefault();
+  const z = e.target.closest?.('.zone'); document.querySelectorAll('.zone').forEach(x=>x.classList.toggle('drag', x===z));
+}));
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.querySelectorAll('.zone').forEach(x=>x.classList.remove('drag')); });
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  document.querySelectorAll('.zone').forEach(x=>x.classList.remove('drag'));
+  const files = [...(e.dataTransfer?.files||[])];
+  if (!files.length) return;
+  const z = e.target.closest?.('.zone');
+  if (z && files.length===1) return loadFile(z.dataset.cat, files[0]);
+  // Flere filer på én gang (eller sluppet udenfor en boks): find kategori ud fra filnavn
+  let unknown = [];
+  (async () => {
+    for (const f of files){ const c = guessCat(f.name); if (c) await loadFile(c, f); else unknown.push(f.name); }
+    if (unknown.length) toast('Kunne ikke se kategorien for: ' + unknown.join(', ') + ' – slip den på den rigtige boks.');
+  })();
+});
+
+/* ---------- Eksport ---------- */
+function exportLines(cats){
+  const out = [];
+  for (const c of cats) for (const x of computed(c)) if (x.final>0) out.push({ cat:c, code:x.code, art:x.art, qty:x.final, desc:x.desc });
+  return out;
+}
+const asCell = v => (/^\d+$/.test(String(v)) && String(v).length < 16 ? Number(v) : String(v ?? ''));
+
+function openExport(){
+  const loaded = CAT_KEYS.filter(c=>session.data[c]);
+  if (!loaded.length){ toast('Upload mindst én fil først'); return; }
+  const exp = store.get('sb_export_pref', { cats: loaded, mode:'one' });
+  $('#exportBody').innerHTML = `
+    <div class="field"><label>Kategorier</label>
+      ${loaded.map(c=>{ const s=summary(c); return `<label class="check"><input type="checkbox" name="ecat" value="${c}" ${exp.cats.includes(c)||!exp.cats.length?'checked':''}> ${CATS[c].name} <span class="muted" style="color:var(--ink-2)">– ${s.order} linjer · ${eur(s.value)}</span> ${s.red?`<span class="tag red">${s.red} røde</span>`:''}</label>`; }).join('')}
+    </div>
+    <div class="field"><label>Filer</label>
+      <label class="check"><input type="radio" name="emode" value="one" ${exp.mode!=='split'?'checked':''}> Én samlet fil</label>
+      <label class="check"><input type="radio" name="emode" value="split" ${exp.mode==='split'?'checked':''}> Én fil pr. kategori</label>
+    </div>
+    <div id="exportInfo"></div>
+    <div class="help" style="font-size:12px;color:var(--ink-2)">Kolonner: <b>GH article no.</b> = Code · <b>Customer article no.</b> = Artikel Nr · <b>Order quantity</b> = Bestil. Kun linjer med antal over 0 kommer med.</div>`;
+  const upd = () => {
+    const cats = [...document.querySelectorAll('[name=ecat]:checked')].map(i=>i.value);
+    const lines = exportLines(cats);
+    const red = cats.reduce((a,c)=>a+summary(c).red,0);
+    const noArt = lines.filter(l=>!l.art).length;
+    $('#exportInfo').innerHTML = `<div class="${red?'danger':'warn'}" style="${red?'':'background:var(--green-soft);color:var(--green)'}">
+      <b>${lines.length}</b> linjer · <b>${fmt(lines.reduce((a,l)=>a+l.qty,0))}</b> enheder klar til eksport.
+      ${red?`<br>⚠ ${red} linje(r) mangler sekundær enhed – de eksporteres med det beregnede antal (uden afrunding). Tjek dem helst først.`:''}
+      ${noArt?`<br>⚠ ${noArt} linje(r) mangler Artikel Nr.`:''}</div>`;
+  };
+  $('#exportBody').onchange = upd; upd();
+  $('#mExport').classList.add('show');
+}
+function doExport(){
+  if (typeof XLSX==='undefined'){ toast('Excel-biblioteket er ikke indlæst'); return; }
+  const cats = [...document.querySelectorAll('[name=ecat]:checked')].map(i=>i.value);
+  const mode = document.querySelector('[name=emode]:checked').value;
+  if (!cats.length){ toast('Vælg mindst én kategori'); return; }
+  store.set('sb_export_pref', { cats, mode });
+  const w = currentWeek();
+  const groups = mode==='split' ? cats.map(c=>[c]) : [cats];
+  let n = 0;
+  for (const g of groups){
+    const lines = exportLines(g);
+    if (!lines.length) continue;
+    const aoa = [['GH article no.','Customer article no.','Order quantity']].concat(lines.map(l=>[asCell(l.code), asCell(l.art), l.qty]));
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:16},{wch:22},{wch:15}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tabelle1');
+    const suffix = mode==='split' ? ' ' + CATS[g[0]].name : '';
+    XLSX.writeFile(wb, `Order Heinemann Uge ${w}${suffix}.xlsx`);
+    n++;
+  }
+  $('#mExport').classList.remove('show');
+  toast(n ? `${n} fil(er) downloadet` : 'Intet at eksportere');
+}
+async function copyLines(){
+  const cats = [...document.querySelectorAll('[name=ecat]:checked')].map(i=>i.value);
+  const txt = ['GH article no.\tCustomer article no.\tOrder quantity'].concat(exportLines(cats).map(l=>`${l.code}\t${l.art}\t${l.qty}`)).join('\n');
+  try{ await navigator.clipboard.writeText(txt); toast('Kopieret – kan indsættes direkte i Excel'); }
+  catch(e){ toast('Kunne ikke kopiere'); }
+}
+
+/* ---------- Indstillinger ---------- */
+function openSettings(){
+  const s = settings;
+  $('#settingsBody').innerHTML = `
+    <div class="field"><label>Minimum på hylden</label>
+      <div class="row3">${CAT_KEYS.map(c=>`<div class="field"><span class="help">${CATS[c].name}</span><input type="number" min="0" id="min_${c}" value="${s.minShelf[c]}"></div>`).join('')}</div>
+      <span class="help">Hvis reel lager + bestilling er under dette tal, rundes op så hylden når minimum.</span></div>
+    <div class="field"><label for="setRound">Afrunding til sekundær enhed</label>
+      <select id="setRound"><option value="nearest" ${s.rounding==='nearest'?'selected':''}>Til nærmeste (15 → 12, 20 → 24)</option><option value="up" ${s.rounding==='up'?'selected':''}>Altid op (15 → 24)</option></select></div>
+    <div class="field"><label>Særregler (varenavn indeholder…)</label>
+      <table class="rules-table"><thead><tr><th>Tekst</th><th>1 =</th><th>Fast antal</th><th>Bestil når under</th><th>Enhed</th><th></th></tr></thead>
+      <tbody id="rulesBody">${s.rules.map(ruleRow).join('')}</tbody></table>
+      <div><button class="btn sm" id="addRule">+ Tilføj regel</button></div>
+      <span class="help">"1 =" omregner fra lagerenhed til bestillingsenhed (Cola: 24 dåser = 1 kasse). "Fast antal" &gt; 0 betyder at der altid bestilles præcis det antal, når reel lager (i bestillingsenheder) er under "Bestil når under". Ellers bestilles solgt ÷ "1 =" afrundet.</span></div>
+    <div class="field"><label>Huskede sekundære enheder</label>
+      <span class="help">${Object.keys(suMemory).length} varer husket. <button class="btn sm" id="clearSU" ${Object.keys(suMemory).length?'':'disabled'}>Slet alle</button></span></div>
+    <div class="field"><label>Tema</label>
+      <select id="setTheme"><option value="">Følg systemet</option><option value="light">Lyst</option><option value="dark">Mørkt</option></select></div>`;
+  $('#setTheme').value = store.get('sb_theme','');
+  $('#mSettings').classList.add('show');
+}
+function ruleRow(r){
+  return `<tr><td><input type="text" data-r="match" value="${esc(r.match)}"></td><td><input type="number" min="1" data-r="factor" value="${r.factor}"></td>
+    <td><input type="number" min="0" data-r="fixed" value="${r.fixed||0}"></td><td><input type="number" min="0" data-r="threshold" value="${r.threshold||0}"></td>
+    <td><input type="text" data-r="unit" value="${esc(r.unit||'')}" style="width:70px"><input type="hidden" data-r="note" value="${esc(r.note||'')}"><input type="hidden" data-r="cats" value="${esc(r.cats||'ltc')}"></td>
+    <td><button class="zone-x" data-delrule title="Slet">×</button></td></tr>`;
+}
+function saveSettings(){
+  for (const c of CAT_KEYS) settings.minShelf[c] = Math.max(0, parseInt($('#min_'+c).value,10)||0);
+  settings.rounding = $('#setRound').value;
+  settings.rules = [...document.querySelectorAll('#rulesBody tr')].map(tr => {
+    const g = k => tr.querySelector(`[data-r="${k}"]`).value;
+    return { match:g('match').trim(), factor:Math.max(1,+g('factor')||1), fixed:+g('fixed')||0, threshold:+g('threshold')||0, unit:g('unit').trim()||'kolli', cats:g('cats')||'ltc', note:g('note') };
+  }).filter(r=>r.match);
+  store.set(K_SET, settings);
+  applyTheme($('#setTheme').value);
+  $('#mSettings').classList.remove('show');
+  render(); toast('Indstillinger gemt');
+}
+function applyTheme(v){ store.set('sb_theme', v); if (v) document.documentElement.dataset.theme=v; else delete document.documentElement.dataset.theme; }
+
+document.addEventListener('click', e => {
+  if (e.target.id==='addRule'){ $('#rulesBody').insertAdjacentHTML('beforeend', ruleRow({match:'',factor:1,fixed:0,threshold:0,unit:'kolli',cats:'ltc',note:''})); }
+  if (e.target.matches('[data-delrule]')) e.target.closest('tr').remove();
+  if (e.target.id==='clearSU' && confirm('Slet alle huskede sekundære enheder?')){ suMemory={}; store.set(K_SU,suMemory); e.target.disabled=true; render(); }
+});
+$('#btnSettings').onclick = openSettings;
+$('#btnSaveSet').onclick = saveSettings;
+$('#btnResetSet').onclick = () => { if(confirm('Nulstil indstillinger til standard?')){ settings=structuredClone(DEFAULT_SETTINGS); store.set(K_SET,settings); openSettings(); render(); } };
+$('#btnBackup').onclick = () => {
+  const blob = new Blob([JSON.stringify({ settings, suMemory, v:1 }, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'shop-bestilling-backup.json'; a.click();
+};
+$('#inRestore').onchange = async e => {
+  try{ const j = JSON.parse(await e.target.files[0].text()); if (j.settings) settings = Object.assign(structuredClone(DEFAULT_SETTINGS), j.settings); if (j.suMemory) suMemory = j.suMemory;
+    store.set(K_SET,settings); store.set(K_SU,suMemory); openSettings(); render(); toast('Backup indlæst'); }
+  catch(err){ alert('Ugyldig backup-fil'); }
+};
+$('#btnExport').onclick = openExport;
+$('#btnDoExport').onclick = doExport;
+$('#btnCopy').onclick = copyLines;
+$('#btnPrint').onclick = () => { if (!CATS[ui.tab]) { toast('Åbn LTC, Perfume eller Andet for at printe listen'); return; } window.print(); };
+document.querySelectorAll('.modal-bg').forEach(m => m.addEventListener('click', e => { if (e.target===m) m.classList.remove('show'); }));
+
+/* =========================================================
+   VAREMODTAGELSE — CDL-fil fra Heinemann → CSV til Winpos
+   Gule linjer i CDL ("Ʃ 9502227809") er sumlinjen for en faktura;
+   alle varelinjer har fakturanummeret i "Billing Document".
+   ========================================================= */
+const K_RX = 'sb_receive_v1', K_RXP = 'sb_receive_pref_v1';
+const RX_COLS = [
+  { k:'inv',   n:'Faktura',     h:['billing document'] },
+  { k:'art',   n:'Article',     h:['article'] },
+  { k:'desc',  n:'Beskrivelse', h:['article description'] },
+  { k:'qty',   n:'Antal',       h:['delivery quantity'], num:true, dec:0 },
+  { k:'price', n:'Pris/enhed',  h:['price per sales unit'], num:true, dec:2 },
+  { k:'net',   n:'Nettoværdi',  h:['net value'], num:true, dec:2 },
+  { k:'ref',   n:'Ordre',       h:['customer reference','po number'] },
+  { k:'brand', n:'Brand',       h:['brand name'] },
+  { k:'mgrp',  n:'Varegruppe',  h:['material group'] },
+  // læses men vises ikke som kolonne
+  { k:'unit',  h:['sales unit'], hidden:true },
+  { k:'cartons', h:['number of cartons'], num:true, hidden:true },
+  { k:'credit',  h:['credit price'], num:true, hidden:true },
+  { k:'gtin',    h:['gtin'], hidden:true },
+  { k:'item',    h:['item'], hidden:true },
+];
+const RX_SHOW = RX_COLS.filter(c=>!c.hidden);
+
+let rx = store.get(K_RX, null);            // { fileName, loadedAt, rows:[], sums:{inv:{qty,net}}, total }
+let rxPref = Object.assign({ autoZero:true, sep:';', dec:',', header:true, headers:['Article','Qty','Price/Qty'], mode:'split' }, store.get(K_RXP, {}));
+const rui = { inv:'all', filter:'all', q:'', colf:{}, sort:{ key:null, dir:1 } };
+
+function rxSave(){ store.set(K_RX, rx); }
+
+function parseCDL(wb){
+  for (const name of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, raw:true, defval:null });
+    let h = -1;
+    for (let i=0;i<Math.min(aoa.length,40);i++){
+      const r = (aoa[i]||[]).map(x=>String(x??'').trim().toLowerCase());
+      if (r.includes('billing document') && r.includes('article')) { h=i; break; }
+    }
+    if (h<0) continue;
+    const head = aoa[h].map(x=>String(x??'').trim().toLowerCase());
+    const idx = {}; for (const c of RX_COLS){ idx[c.k] = c.h.map(n=>head.indexOf(n)).find(i=>i>=0) ?? -1; }
+    if (idx.art<0 || idx.qty<0 || idx.price<0) throw new Error('CDL mangler kolonnerne Article / Delivery Quantity / Price per Sales Unit.');
+    const rows = [], sums = {}; let total = null;
+    for (let i=h+1;i<aoa.length;i++){
+      const r = aoa[i]||[];
+      const inv = String(r[idx.inv]??'').trim();
+      if (!inv) continue;
+      if (inv.includes('Ʃ')){                 // gul sumlinje
+        const no = inv.replace(/Ʃ/g,'').trim();
+        const v = { qty: parseNum(r[idx.qty]) ?? 0, net: parseNum(r[idx.net]) ?? 0 };
+        if (no) sums[no] = v; else total = v;
+        continue;
+      }
+      const o = { id: rows.length };
+      for (const c of RX_COLS){
+        const v = idx[c.k]>=0 ? r[idx[c.k]] : null;
+        o[c.k] = c.num ? (parseNum(v) ?? 0) : String(v ?? '').trim();
+      }
+      if (!o.art) continue;
+      o.tester = /^T\s/.test(o.desc) || /^T8/i.test(o.mgrp);
+      o.posm   = /^X/i.test(o.mgrp) || /pseudo/i.test(o.brand) || /posm/i.test(o.ref);
+      o.on = !(rxPref.autoZero && o.price === 0);
+      rows.push(o);
+    }
+    if (!rows.length) continue;
+    return { sheet:name, rows, sums, total };
+  }
+  throw new Error('Kunne ikke finde en CDL-tabel (kolonnerne "Billing Document" og "Article").');
+}
+
+async function rxLoad(file){
+  if (typeof XLSX === 'undefined'){ toast('Excel-læseren kunne ikke indlæses (kræver internet første gang).'); return; }
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), { type:'array' });
+    const p = parseCDL(wb);
+    if (rx && rx.rows?.some(r=>!r.on) && !confirm('Der er allerede en CDL indlæst med dine fravalg. Erstat den?')) return;
+    rx = { fileName:file.name, loadedAt:Date.now(), rows:p.rows, sums:p.sums, total:p.total };
+    rxSave();
+    Object.assign(rui, { inv:'all', filter:'all', q:'', colf:{}, sort:{key:null,dir:1} });
+    renderReceive();
+    const invs = rxInvoices();
+    const off = p.rows.filter(r=>!r.on).length;
+    toast(`${p.rows.length} linjer · ${invs.length} fakturaer indlæst${off ? ` · ${off} med pris 0 fravalgt` : ''}`);
+  }catch(e){ console.error(e); alert('Kunne ikke læse CDL-filen:\n' + e.message); }
+}
+
+function rxInvoices(){
+  if (!rx) return [];
+  const m = new Map();
+  for (const r of rx.rows){
+    if (!m.has(r.inv)) m.set(r.inv, { no:r.inv, lines:0, qty:0, net:0, on:0, onNet:0, refs:new Set(), zero:0 });
+    const v = m.get(r.inv);
+    v.lines++; v.qty += r.qty; v.net += r.net; if (r.ref) v.refs.add(r.ref);
+    if (r.on){ v.on++; v.onNet += r.net; }
+    if (r.price===0) v.zero++;
+  }
+  return [...m.values()].map(v => {
+    const s = rx.sums?.[v.no];
+    v.check = s ? (Math.abs(s.net - v.net) < 0.05 && Math.abs(s.qty - v.qty) < 0.001 ? 'ok' : 'diff') : 'none';
+    v.sum = s;
+    return v;
+  });
+}
+
+/** Excel-agtigt kolonnefilter: tekst = "indeholder", tal kan bruge >, <, >=, <=, =, <> */
+function colMatch(col, val, f){
+  f = f.trim(); if (!f) return true;
+  if (col.num){
+    const m = f.match(/^(>=|<=|<>|!=|>|<|=)\s*(-?[\d.,]+)$/);
+    if (m){
+      const n = parseNum(m[2]);
+      switch(m[1]){ case '>':return val>n; case '<':return val<n; case '>=':return val>=n; case '<=':return val<=n; case '=':return val===n; default:return val!==n; }
+    }
+    const n = parseNum(f); if (n!=null && /^-?[\d.,]+$/.test(f)) return val===n;
+  }
+  const neg = f.startsWith('!') || f.startsWith('<>');
+  const needle = f.replace(/^(!|<>)/,'').toLowerCase();
+  const hit = String(val).toLowerCase().includes(needle);
+  return neg ? !hit : hit;
+}
+
+function rxVisible(){
+  if (!rx) return [];
+  const q = rui.q.trim().toLowerCase();
+  let L = rx.rows.filter(r => {
+    if (rui.inv!=='all' && r.inv!==rui.inv) return false;
+    if (rui.filter==='on' && !r.on) return false;
+    if (rui.filter==='off' && r.on) return false;
+    if (rui.filter==='zero' && r.price!==0) return false;
+    if (rui.filter==='tester' && !r.tester) return false;
+    if (q && !(r.desc.toLowerCase().includes(q) || r.art.includes(q) || r.brand.toLowerCase().includes(q) || (r.gtin||'').includes(q))) return false;
+    for (const c of RX_SHOW){ const f = rui.colf[c.k]; if (f && !colMatch(c, r[c.k], f)) return false; }
+    return true;
+  });
+  const { key, dir } = rui.sort;
+  if (key){
+    const col = RX_COLS.find(c=>c.k===key);
+    const get = key==='on' ? (r=>r.on?1:0) : col?.num ? (r=>r[key]) : (r=>{ const v=r[key]; return /^\d+$/.test(v) ? +v : String(v).toLowerCase(); });
+    L = L.slice().sort((a,b)=>{ const A=get(a),B=get(b); return (A>B?1:A<B?-1:0)*dir; });
+  }
+  return L;
+}
+
+function renderReceive(){
+  const v = $('#view');
+  const invs = rxInvoices();
+  const zone = `<label class="zone rx-zone ${rx?'loaded':''}" id="rxZone">
+      <div class="zone-head"><div><div class="zone-title">CDL-fil fra Heinemann</div><div class="zone-sub">Klik eller træk filen hertil (.xlsx)</div></div>
+      ${rx ? `<span style="display:flex;gap:4px;align-items:center"><span class="pill ok">Indlæst</span><button class="zone-x" id="rxClear" title="Fjern">×</button></span>` : `<span class="pill">Mangler</span>`}</div>
+      ${rx ? `<div class="zone-file" title="${esc(rx.fileName)}">📄 ${esc(rx.fileName)}</div>
+        <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+          <div class="stat"><b>${invs.length}</b><span>fakturaer</span></div>
+          <div class="stat"><b>${rx.rows.length}</b><span>linjer</span></div>
+          <div class="stat ${rx.rows.some(r=>!r.on)?'amber':''}"><b>${rx.rows.filter(r=>!r.on).length}</b><span>fravalgt</span></div>
+        </div>` : `<div class="zone-empty">⬆ CDL Transp. … .xlsx — appen deler selv op i fakturaer</div>`}
+      <input type="file" accept=".xlsx,.xls,.xlsm" id="rxIn" hidden></label>`;
+
+  if (!rx){
+    v.innerHTML = `<div class="rx-top">${zone}
+      <div class="card"><h3>Sådan virker det</h3><ol>
+        <li>Upload CDL-filen fra Heinemann direkte – du behøver ikke kopiere den ind i Faktura Import først.</li>
+        <li>Appen deler linjerne op pr. faktura (de gule Ʃ-linjer) og tjekker at summen passer.</li>
+        <li>Linjer med pris 0 (testere, POSM) fravælges automatisk – sæt flueben igen hvis de skal med.</li>
+        <li>Filtrér og sortér som i Excel, fjern flueben på det der ikke skal i Winpos.</li>
+        <li>Eksportér CSV pr. faktura: <b>Article · Delivery quantity · Price per Sales Unit</b>.</li></ol></div></div>`;
+    return;
+  }
+
+  const allNet = invs.reduce((a,i)=>a+i.net,0);
+  const invCards = `<div class="inv-list">
+    <button class="inv all ${rui.inv==='all'?'on':''}" data-rxinv="all">
+      <span class="meta">Alle fakturaer</span><span class="val">${eur(allNet)}</span>
+      <span class="meta">${rx.rows.length} linjer · ${fmt(rx.rows.reduce((a,r)=>a+r.qty,0))} stk</span>
+      ${rx.total ? `<span class="row">${Math.abs(rx.total.net-allNet)<0.05?'<span class="tag teal">ƩƩ passer ✓</span>':'<span class="tag amber">ƩƩ afviger</span>'}</span>` : ''}
+    </button>
+    ${invs.map(i=>`<button class="inv ${rui.inv===i.no?'on':''}" data-rxinv="${esc(i.no)}">
+      <span class="no">${esc(i.no)}</span>
+      <span class="val">${eur(i.net)}</span>
+      <span class="meta">${i.lines} linjer · ${fmt(i.qty)} stk${i.lines!==i.on?` · <b>${i.lines-i.on} fravalgt</b>`:''}</span>
+      <span class="meta" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc([...i.refs].join(' / '))}">${esc([...i.refs].join(' / '))}</span>
+      <span class="row">${i.check==='ok'?'<span class="tag teal">Sum passer ✓</span>':i.check==='diff'?`<span class="tag red" title="Gul linje: ${eur(i.sum.net)} / ${i.sum.qty} stk">Sum afviger!</span>`:'<span class="tag grey">Ingen sumlinje</span>'}
+        ${i.zero?`<span class="tag amber">${i.zero} pris 0</span>`:''}</span>
+    </button>`).join('')}
+  </div>`;
+
+  const cnt = rx.rows.filter(r=>rui.inv==='all'||r.inv===rui.inv);
+  const chip = (k,n,c) => `<button class="chip ${rui.filter===k?'on':''}" data-rxf="${k}">${n}<span class="n">${c}</span></button>`;
+  const th = c => `<th class="${c.num?'r':''}" data-rxsort="${c.k}">${c.n} ${rui.sort.key===c.k?`<span class="arr">${rui.sort.dir>0?'▲':'▼'}</span>`:''}</th>`;
+  const anyColF = Object.values(rui.colf).some(x=>x && x.trim());
+
+  v.innerHTML = `
+    <div class="rx-top">${zone}<div style="min-width:0">${invCards}</div></div>
+    <div class="toolbar">
+      <div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="rxQ" type="search" placeholder="Søg varenavn, Article, brand eller GTIN…" value="${esc(rui.q)}"></div>
+      <div class="chips">
+        ${chip('all','Alle',cnt.length)}${chip('on','Med i CSV',cnt.filter(r=>r.on).length)}${chip('off','Fravalgt',cnt.filter(r=>!r.on).length)}
+        ${chip('zero','Pris 0',cnt.filter(r=>r.price===0).length)}${chip('tester','Testere',cnt.filter(r=>r.tester).length)}
+      </div>
+    </div>
+    <div class="toolbar" style="margin-top:-2px">
+      <button class="btn sm" id="rxAllOn">☑ Medtag alle viste</button>
+      <button class="btn sm" id="rxAllOff">☐ Fravælg alle viste</button>
+      <button class="btn sm" id="rxClearF" ${anyColF?'':'disabled'}>✕ Ryd kolonnefiltre</button>
+      <span style="flex:1"></span>
+      <button class="btn primary" id="rxExport">⬇ Eksportér CSV${rui.inv!=='all'?' for '+esc(rui.inv):''}</button>
+    </div>
+    <div class="tablewrap">
+      <table class="rx-table">
+        <thead>
+          <tr><th class="chk" data-rxsort="on" title="Med i CSV">✓</th>${RX_SHOW.map(th).join('')}</tr>
+          <tr class="f"><th class="chk"></th>${RX_SHOW.map(c=>`<th><input data-colf="${c.k}" value="${esc(rui.colf[c.k]||'')}" class="${rui.colf[c.k]?'act':''}" placeholder="${c.num?'>0, =0 …':'Filtrér…'}" title="${c.num?'Tal: >5, <10, =0, <>0 eller tekst':'Indeholder … (start med ! for ikke)'}"></th>`).join('')}</tr>
+        </thead>
+        <tbody id="rxBody"></tbody>
+        <tfoot id="rxFoot"></tfoot>
+      </table>
+    </div>
+    <div class="legend">
+      <span>Fjern fluebenet for linjer der ikke skal i Winpos-CSV'en.</span>
+      <span>Kolonnefiltre: tekst = indeholder, <b>!tekst</b> = indeholder ikke, tal: <b>&gt;5 &lt;10 =0 &lt;&gt;0</b>.</span>
+      <span>Klik på en overskrift for at sortere.</span>
+    </div>`;
+  rxRenderBody();
+}
+
+function rxRenderBody(){
+  const L = rxVisible();
+  $('#rxBody').innerHTML = L.map(r => `<tr class="${r.on?'':'off'}" data-rxid="${r.id}">
+      <td class="chk"><input type="checkbox" data-rxon="${r.id}" ${r.on?'checked':''} aria-label="Med i CSV"></td>
+      <td class="code">${esc(r.inv)}</td>
+      <td class="code">${esc(r.art)}</td>
+      <td class="desc"><div class="d">${esc(r.desc)}</div>${(r.tester||r.posm||r.price===0)?`<div class="tags">${r.tester?'<span class="tag amber">Tester</span>':''}${r.posm?'<span class="tag grey">POSM / pseudo</span>':''}${r.price===0?`<span class="tag red">Pris 0${r.credit?' (kredit '+fmt(r.credit,2)+')':''}</span>`:''}</div>`:''}</td>
+      <td class="r num">${fmt(r.qty)}</td>
+      <td class="r num">${fmt(r.price,2)}</td>
+      <td class="r num">${fmt(r.net,2)}</td>
+      <td style="white-space:nowrap;font-size:13px">${esc(r.ref)}</td>
+      <td style="font-size:13px">${esc(r.brand)}</td>
+      <td class="code" style="font-size:12px">${esc(r.mgrp)}</td>
+    </tr>`).join('') || `<tr><td colspan="${RX_SHOW.length+1}"><div class="empty-state"><h3>Ingen linjer</h3>Ingen linjer matcher filtrene.</div></td></tr>`;
+  const on = L.filter(r=>r.on);
+  $('#rxFoot').innerHTML = `<tr><td></td><td colspan="3">${L.length} viste linjer · <b>${on.length}</b> med i CSV</td>
+    <td class="r num">${fmt(on.reduce((a,r)=>a+r.qty,0))}</td><td></td><td class="r num">${fmt(on.reduce((a,r)=>a+r.net,0),2)}</td><td colspan="3" style="font-weight:400;color:var(--ink-2)">sum af markerede</td></tr>`;
+}
+
+/* ---- CSV ---- */
+function csvField(v, sep){
+  const s = String(v ?? '');
+  return /["\r\n]/.test(s) || s.includes(sep) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function csvNum(n, dec){ const s = String(Math.round(n*10000)/10000); return dec===',' ? s.replace('.', ',') : s; }
+function buildCsv(rows, p){
+  const sep = p.sep==='tab' ? '\t' : p.sep;
+  const out = [];
+  if (p.header) out.push(p.headers.map(h=>csvField(h,sep)).join(sep));
+  for (const r of rows) out.push([csvField(r.art,sep), csvNum(r.qty,p.dec), csvNum(r.price,p.dec)].join(sep));
+  return out.join('\r\n') + '\r\n';
+}
+function download(name, text, type='text/csv;charset=utf-8'){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+function openCsv(){
+  const invs = rxInvoices();
+  const pre = rui.inv==='all' ? invs.map(i=>i.no) : [rui.inv];
+  const seg = (name, opts, cur) => `<span class="seg">${opts.map(([v,l])=>`<label><input type="radio" name="${name}" value="${v}" ${String(cur)===String(v)?'checked':''}>${l}</label>`).join('')}</span>`;
+  $('#csvBody').innerHTML = `
+    <div class="field"><label>Fakturaer</label>
+      ${invs.map(i=>`<label class="check"><input type="checkbox" name="cinv" value="${esc(i.no)}" ${pre.includes(i.no)?'checked':''}>
+        <span class="num">${esc(i.no)}</span> <span style="color:var(--ink-2)">– ${i.on} af ${i.lines} linjer · ${eur(i.onNet)}</span>
+        ${i.check==='diff'?'<span class="tag red">sum afviger</span>':''}</label>`).join('')}</div>
+    <div class="field"><label>Filer</label>${seg('cmode',[['split','Én fil pr. faktura'],['one','Én samlet fil']], rxPref.mode)}</div>
+    <div class="row3">
+      <div class="field"><label>Skilletegn</label>${seg('csep',[[';',';'],[',',','],['tab','Tab']], rxPref.sep)}</div>
+      <div class="field"><label>Decimaltegn</label>${seg('cdec',[[',','0,64'],['.','0.64']], rxPref.dec)}</div>
+      <div class="field"><label>Overskrift</label>${seg('chead',[['1','Med'],['0','Uden']], rxPref.header?'1':'0')}</div>
+    </div>
+    <div class="field" id="headNames"><label>Overskrifter</label>
+      <div class="row3">${rxPref.headers.map((h,i)=>`<input type="text" data-hn="${i}" value="${esc(h)}">`).join('')}</div>
+      <span class="help">Kolonnerne er altid: Article · Delivery quantity · Price per Sales Unit (samme som fanen CSV PC).</span></div>
+    <div class="field"><label>Forhåndsvisning</label><div class="csv-preview" id="csvPrev"></div></div>`;
+  const upd = () => {
+    const p = csvPrefFromForm();
+    $('#headNames').style.display = p.header ? '' : 'none';
+    const cats = [...document.querySelectorAll('[name=cinv]:checked')].map(i=>i.value);
+    const rows = rx.rows.filter(r=>r.on && cats.includes(r.inv));
+    const lines = buildCsv(rows.slice(0,6), p).trimEnd().split('\r\n');
+    $('#csvPrev').textContent = lines.join('\n') + (rows.length>6 ? `\n… (${rows.length} linjer i alt)` : '');
+  };
+  $('#csvBody').oninput = upd; $('#csvBody').onchange = upd; upd();
+  $('#mCsv').classList.add('show');
+}
+function csvPrefFromForm(){
+  const g = n => document.querySelector(`[name=${n}]:checked`)?.value;
+  return Object.assign({}, rxPref, {
+    mode: g('cmode'), sep: g('csep'), dec: g('cdec'), header: g('chead')==='1',
+    headers: [0,1,2].map(i => document.querySelector(`[data-hn="${i}"]`)?.value ?? rxPref.headers[i]),
+  });
+}
+function doCsv(){
+  const p = csvPrefFromForm();
+  rxPref = Object.assign(rxPref, p); store.set(K_RXP, rxPref);
+  const sel = [...document.querySelectorAll('[name=cinv]:checked')].map(i=>i.value);
+  if (!sel.length){ toast('Vælg mindst én faktura'); return; }
+  const groups = p.mode==='split' ? sel.map(s=>[s]) : [sel];
+  let n = 0;
+  groups.forEach((g, gi) => {
+    const rows = rx.rows.filter(r=>r.on && g.includes(r.inv));
+    if (!rows.length) return;
+    const name = p.mode==='split' ? `CSV PC ${g[0]}.csv` : `CSV PC ${sel.length===1?sel[0]:'samlet '+new Date().toISOString().slice(0,10)}.csv`;
+    setTimeout(() => download(name, buildCsv(rows, p)), gi*350);   // lille pause så browseren tillader flere downloads
+    n++;
+  });
+  $('#mCsv').classList.remove('show');
+  toast(n ? `${n} CSV-fil(er) downloadet` : 'Ingen markerede linjer at eksportere');
+}
+
+/* ---- Hændelser (varemodtagelse) ---- */
+document.addEventListener('click', e => {
+  if (ui.tab!=='modtag') return;
+  const t = e.target;
+  if (t.id==='rxClear'){ e.preventDefault(); if (confirm('Fjern CDL-filen og dine fravalg?')){ rx=null; store.del(K_RX); renderReceive(); } return; }
+  const inv = t.closest('[data-rxinv]'); if (inv){ rui.inv = inv.dataset.rxinv; renderReceive(); return; }
+  const f = t.closest('[data-rxf]'); if (f){ rui.filter = f.dataset.rxf; renderReceive(); return; }
+  const s = t.closest('[data-rxsort]'); if (s && !t.matches('input')){ const k=s.dataset.rxsort; rui.sort = rui.sort.key===k ? {key:k,dir:-rui.sort.dir} : {key:k,dir:RX_COLS.find(c=>c.k===k)?.num?-1:1}; renderReceive(); return; }
+  if (t.id==='rxAllOn' || t.id==='rxAllOff'){ const on = t.id==='rxAllOn'; const L = rxVisible(); L.forEach(r=>r.on=on); rxSave(); renderReceive(); toast(`${L.length} linjer ${on?'medtaget':'fravalgt'}`); return; }
+  if (t.id==='rxClearF'){ rui.colf = {}; renderReceive(); return; }
+  if (t.id==='rxExport'){ openCsv(); return; }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id==='rxIn' && t.files[0]){ rxLoad(t.files[0]); t.value=''; return; }
+  if (t.dataset.rxon!=null){
+    const r = rx.rows[+t.dataset.rxon]; r.on = t.checked; rxSave();
+    t.closest('tr').classList.toggle('off', !r.on);
+    // opdatér fakturakort og tællere uden at miste scroll-position
+    const sc = document.querySelector('.tablewrap')?.scrollTop;
+    renderReceive(); const w=document.querySelector('.tablewrap'); if (w && sc!=null) w.scrollTop = sc;
+  }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id==='rxQ'){ rui.q = t.value; rxRenderBody(); return; }
+  if (t.dataset.colf!=null){ rui.colf[t.dataset.colf] = t.value; t.classList.toggle('act', !!t.value.trim()); rxRenderBody(); const b=$('#rxClearF'); if (b) b.disabled = !Object.values(rui.colf).some(x=>x&&x.trim()); }
+});
+// træk-og-slip af CDL på fanen Varemodtagelse
+document.addEventListener('drop', e => {
+  if (ui.tab!=='modtag') return;
+  const f = e.dataTransfer?.files?.[0]; if (!f) return;
+  e.stopImmediatePropagation(); e.preventDefault(); rxLoad(f);
+}, true);
+$('#btnDoCsv').onclick = doCsv;
+
+applyTheme(store.get('sb_theme',''));
+render();
+</script>
+</body>
+</html>
