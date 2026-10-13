@@ -7,257 +7,261 @@
 <meta name="description" content="Bestilling ud fra Winpos-eksporter med eksport til Order Heinemann, og varemodtagelse fra CDL-fil til Winpos-CSV.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%2313243A'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23D4A23C' stroke-width='4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
+/* ------------------------------------------------------------------
+   Roligt arbejdsværktøj: lyse flader, hårfine linjer, én dæmpet
+   petroleumsblå accent. Farve bruges kun til status og kategori.
+   ------------------------------------------------------------------ */
 :root{
-  --bg:#EEF2F6; --card:#FFFFFF; --card-2:#F6F8FB; --sunk:#E9EEF4;
-  --ink:#162334; --ink-2:#56667A; --ink-3:#8B98A9; --line:#DFE5EC; --line-2:#CDD6E0;
-  --head:#13243A; --head-2:#1B3150; --head-ink:#C9D5E3;
-  --gold:#D4A23C; --gold-ink:#9A6F14; --gold-soft:#FBF2DE;
-  --ok:#2E9D72; --ok-soft:#E3F4EC; --warn:#C9921C; --warn-soft:#FBF0D9; --bad:#D9534B; --bad-soft:#FBE7E5; --man:#3C6CD6; --man-soft:#E6EDFC;
-  --c-ltc:#4F86C6; --c-perfume:#C2649A; --c-andet:#3BA59A; --c-cosmetic:#8C6BD1;
-  --r:12px; --shadow:0 1px 2px rgba(19,36,58,.05),0 4px 14px rgba(19,36,58,.05);
+  --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#FAFBFC; --hover:#F2F4F7;
+  --line:#E6E9EE; --line-2:#D8DDE4;
+  --ink:#1D2330; --ink-2:#5A6372; --ink-3:#8F97A4;
+  --accent:#2B5B86; --accent-hi:#234C71; --accent-soft:#EBF1F7;
+  --red:#C0443C; --red-soft:#FBEEED; --amber:#A66A10; --amber-soft:#FBF3E3;
+  --green:#2C7A57; --green-soft:#E8F3EE; --blue:#3D62C6; --blue-soft:#ECF0FA;
+  --c-ltc:#5B82B0; --c-perfume:#B06A93; --c-andet:#4C978B; --c-cosmetic:#8A76C2;
+  --r:10px; --hdr-h:57px;
+  --shadow:0 1px 2px rgba(20,28,40,.04);
 }
 :root[data-theme="dark"]{
-  --bg:#1A2533; --card:#223042; --card-2:#26364A; --sunk:#1D2a3A;
-  --ink:#E7EDF4; --ink-2:#A9B6C6; --ink-3:#7A899C; --line:#304055; --line-2:#3B4D64;
-  --head:#121C29; --head-2:#1C2B3E; --head-ink:#B5C3D3;
-  --gold:#E2B04F; --gold-ink:#E9BE68; --gold-soft:#3A3222;
-  --ok:#5BC496; --ok-soft:#1F3A33; --warn:#E7B94E; --warn-soft:#3A3322; --bad:#F07B72; --bad-soft:#43292C; --man:#8FB0F5; --man-soft:#26344F;
-  --c-ltc:#6FA0DA; --c-perfume:#D683B2; --c-andet:#55BFB3; --c-cosmetic:#A58BE2;
-  --shadow:0 1px 2px rgba(0,0,0,.25);
+  --bg:#15181D; --surface:#1C2027; --surface-2:#20252D; --hover:#252A33;
+  --line:#2A3039; --line-2:#363D48;
+  --ink:#E3E7ED; --ink-2:#A1A9B5; --ink-3:#6E7786;
+  --accent:#7EA7D3; --accent-hi:#9BBCE0; --accent-soft:#1F2A37;
+  --red:#E48079; --red-soft:#372223; --amber:#DDB062; --amber-soft:#342C1D;
+  --green:#6CC39A; --green-soft:#1B3027; --blue:#93ADF0; --blue-soft:#222B42;
+  --c-ltc:#7FA2CF; --c-perfume:#CF8DB3; --c-andet:#6DB8AC; --c-cosmetic:#A898DA;
+  --shadow:none;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font:14.5px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+body{background:var(--bg);color:var(--ink);font:14px/1.55 'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 button,input,select{font:inherit;color:inherit}
 [hidden]{display:none !important}
-:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
-.wrap{max-width:1480px;margin:0 auto;padding:0 28px}
-@media (max-width:720px){ .wrap{padding:0 16px} }
+.wrap{max-width:1440px;margin:0 auto;padding:0 32px}
+@media (max-width:760px){ .wrap{padding:0 16px} }
 
 /* ---------- Topbjælke ---------- */
-.top{background:var(--head);color:#fff}
-.top .wrap{display:flex;align-items:center;gap:16px;padding-top:16px;padding-bottom:16px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:13px;margin-right:auto}
-.brand .logo{width:46px;height:46px;border-radius:50%;background:var(--head-2);display:grid;place-items:center;border:2px solid rgba(255,255,255,.12)}
-.brand .k{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:700}
-.brand h1{margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em;line-height:1.15;color:#fff}
-.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.lang{display:inline-flex;border:1px solid rgba(255,255,255,.18);border-radius:9px;overflow:hidden}
-.lang button{border:none;background:transparent;color:var(--head-ink);padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer}
-.lang button.on{background:var(--gold);color:#1b1405}
-.tb{border:1px solid rgba(255,255,255,.18);background:transparent;color:#E8EEF5;padding:8px 13px;border-radius:9px;font-weight:700;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
-.tb:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.05)}
-.tb.gold{background:var(--gold);border-color:var(--gold);color:#1b1405}
-.tb.gold:hover{filter:brightness(1.06)}
-.tb.icon{padding:8px 10px}
-.tb:disabled{opacity:.4;cursor:not-allowed}
-@media (max-width:720px){ .tb .lbl{display:none} .brand .logo{width:38px;height:38px} .brand h1{font-size:18px} }
+.hdr{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+.hdr-row{display:flex;align-items:center;gap:22px;min-height:56px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;white-space:nowrap;color:var(--ink)}
+.brand .mk{width:22px;height:22px;border-radius:50%;border:5px solid var(--accent);flex-shrink:0}
+.nav{display:flex;gap:2px;align-self:stretch;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav button{border:none;background:none;padding:0 12px;color:var(--ink-2);font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s}
+.nav button:hover{color:var(--ink)}
+.nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.nav .cnt{font-size:11px;font-weight:600;color:var(--red);background:var(--red-soft);border-radius:9px;padding:0 6px;line-height:18px}
+.tools{display:flex;align-items:center;gap:6px}
+.lang{display:inline-flex;gap:0;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.lang button{border:none;background:none;padding:4px 9px;font-size:12px;font-weight:600;color:var(--ink-3);cursor:pointer}
+.lang button.on{background:var(--ink);color:var(--surface)}
+.ib{border:none;background:none;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2);cursor:pointer}
+.ib:hover{background:var(--hover);color:var(--ink)}
+@media (max-width:1180px){
+  .hdr-row{gap:12px;padding-top:8px}
+  .nav{order:3;flex-basis:100%;min-height:42px}
+  .nav button{padding:0 10px}
+}
 
-/* ---------- Filbjælke ---------- */
-.filebar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:16px 0 4px}
-.chip{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line-2);background:var(--card);border-radius:10px;padding:6px 8px 6px 11px;font-size:13.5px;font-weight:700}
-.chip .dot{width:9px;height:9px;border-radius:50%;background:var(--cat)}
-.chip .n{font-weight:500;color:var(--ink-3)}
-.chip .x{border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:16px;line-height:1;padding:0 3px;border-radius:5px}
-.chip .x:hover{color:var(--bad);background:var(--bad-soft)}
-.chip.week{border-color:var(--gold);background:var(--gold-soft);color:var(--gold-ink);padding-right:11px}
-.chip.missing{border-style:dashed;color:var(--ink-3);font-weight:600;cursor:pointer;background:transparent}
-.chip.missing:hover{border-color:var(--ink-3);color:var(--ink)}
-.addbtn{border:1.5px solid var(--line-2);background:var(--card);border-radius:10px;padding:6px 12px;font-weight:700;font-size:13.5px;cursor:pointer}
-.addbtn:hover{border-color:var(--ink-3)}
+/* ---------- Knapper ---------- */
+.btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink);padding:7px 13px;border-radius:8px;cursor:pointer;font-weight:500;font-size:13.5px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .btn.primary{color:#0f1722}
+.btn.primary:hover{background:var(--accent-hi)}
+.btn.ghost{border-color:transparent;background:none;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--hover);color:var(--ink)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn svg{flex-shrink:0;opacity:.85}
+@media (max-width:760px){ .tools .btn .lbl{display:none} }
 
-/* ---------- Faner ---------- */
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line-2);margin-top:14px;overflow-x:auto}
-.tab{border:none;background:none;padding:12px 15px 11px;font-weight:700;color:var(--ink-2);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap;display:flex;gap:8px;align-items:center;font-size:14.5px}
-.tab:hover{color:var(--ink)}
-.tab.on{color:var(--ink);border-bottom-color:var(--gold)}
-.tab .b{min-width:20px;height:20px;border-radius:10px;background:var(--bad);color:#fff;font-size:11.5px;display:inline-grid;place-items:center;padding:0 6px}
-.tab .cd{width:8px;height:8px;border-radius:50%;background:var(--cat)}
-.tabdesc{display:flex;gap:8px;align-items:center;color:var(--ink-2);margin:14px 0 18px;font-size:14px}
-.q{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--sunk);color:var(--ink-2);font-size:11px;font-weight:800;cursor:help;flex-shrink:0;border:1px solid var(--line-2)}
+/* ---------- Sidehoved ---------- */
+.phead{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:28px 0 20px}
+.phead h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.phead h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--cat)}
+.phead .meta{margin:4px 0 0;color:var(--ink-2);font-size:13.5px}
+.phead .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.lead{color:var(--ink-2);margin:-8px 0 20px;max-width:90ch;font-size:13.5px}
 
-/* ---------- Kort ---------- */
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:20px 22px;min-width:0}
-.card h3{margin:0;font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
-.card .sub{margin:3px 0 16px;color:var(--ink-2);font-size:13px}
-.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-@media (max-width:1100px){.kpis{grid-template-columns:1fr 1fr}}
-@media (max-width:700px){.kpis{grid-template-columns:1fr}}
-.grid2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
-@media (max-width:1100px){.grid2{grid-template-columns:1fr}}
-.kpi-body{display:flex;gap:20px;align-items:center}
-.kpi-body svg{flex-shrink:0}
-.legend-list{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
-.lg{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;gap:9px;align-items:center;font-size:13.5px}
-.lg .sw{width:10px;height:10px;border-radius:3px;background:var(--cat)}
-.lg .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lg .v{font-weight:800}
-.lg .p{color:var(--ink-3);font-size:12px;min-width:34px;text-align:right}
-.bignum{font-size:44px;font-weight:800;letter-spacing:-.02em;line-height:1}
-.bignum small{font-size:15px;font-weight:600;color:var(--ink-3);letter-spacing:0;margin-left:6px}
-.delta{font-size:12.5px;font-weight:700;margin-top:4px}
-.delta.up{color:var(--gold-ink)} .delta.down{color:var(--ok)}
-.bars{display:flex;flex-direction:column;gap:9px;margin-top:18px}
-.br{display:grid;grid-template-columns:120px minmax(0,1fr) 54px;gap:10px;align-items:center;font-size:13px}
-.br .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.br .tr{height:8px;border-radius:4px;background:var(--sunk);overflow:hidden}
-.br .fl{height:100%;border-radius:4px;background:var(--cat)}
-.br .v{text-align:right;font-weight:700}
-.stat-rows{display:flex;flex-direction:column;gap:6px;margin-top:6px;font-size:13.5px}
-.stat-rows div{display:flex;justify-content:space-between;gap:10px}
-.stat-rows b.bad{color:var(--bad)} .stat-rows b.warn{color:var(--warn)} .stat-rows b.man{color:var(--man)}
+/* ---------- Paneler ---------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-width:0}
+.ph{display:flex;align-items:baseline;gap:10px;padding:16px 20px 12px}
+.ph h2{margin:0;font-size:14.5px;font-weight:600}
+.ph .s{color:var(--ink-3);font-size:13px}
+.pb{padding:0 20px 16px}
+.cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+@media (max-width:1050px){.cols{grid-template-columns:1fr}}
 
-.issue{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
-.issue:first-of-type{border-top:none}
-.issue .sw{width:10px;height:10px;border-radius:50%;background:var(--cat)}
-.issue b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.issue span.m{font-size:12.5px;color:var(--ink-3)}
-@media (max-width:600px){ .issue{grid-template-columns:10px minmax(0,1fr) auto} .issue .tag{display:none} }
-.allok{display:flex;gap:12px;align-items:center;color:var(--ok);font-weight:800;font-size:16px;padding:8px 0}
-.top-list{list-style:none;margin:0;padding:0}
-.top-list li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
-.top-list li:first-child{border-top:none}
-.top-list .sw{width:10px;height:10px;border-radius:3px;background:var(--cat)}
-.top-list .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.top-list .v{white-space:nowrap;color:var(--ink-2)}
-.top-list .v b{color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.stat{padding:18px 20px;border-left:1px solid var(--line);min-width:0}
+.stat:first-child{border-left:none}
+.stat .l{display:block;font-size:12.5px;color:var(--ink-3);font-weight:500}
+.stat .v{display:block;font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:4px;line-height:1.2}
+.stat .v.red{color:var(--red)}
+.stat .d{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px}
+@media (max-width:860px){ .stats{grid-template-columns:1fr 1fr} .stat:nth-child(3){border-left:none} .stat:nth-child(n+3){border-top:1px solid var(--line)} }
 
-.tag{display:inline-flex;align-items:center;font-size:12px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;line-height:1.5}
-.tag.red{background:var(--bad-soft);color:var(--bad)}
-.tag.amber{background:var(--warn-soft);color:var(--warn)}
-.tag.blue{background:var(--man-soft);color:var(--man)}
-.tag.teal{background:var(--ok-soft);color:var(--ok)}
-.tag.grey{background:var(--sunk);color:var(--ink-2)}
+.catrow{display:grid;grid-template-columns:10px minmax(150px,1.3fr) minmax(80px,1fr) 90px 100px 90px 18px;gap:16px;align-items:center;padding:12px 20px;border-top:1px solid var(--line);cursor:pointer;transition:background .12s}
+.catrow:hover{background:var(--hover)}
+.catrow .dt{width:10px;height:10px;border-radius:50%;background:var(--cat)}
+.catrow .nm b{display:block;font-weight:600}
+.catrow .nm span{display:block;font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catrow .bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.catrow .bar i{display:block;height:100%;border-radius:3px;background:var(--cat)}
+.catrow .n{text-align:right;color:var(--ink-2)}
+.catrow .n.v{color:var(--ink);font-weight:600}
+.catrow .iss{text-align:right;font-size:13px;color:var(--ink-3)}
+.catrow .iss.r{color:var(--red);font-weight:500}
+.catrow .ch{color:var(--ink-3)}
+.catrow.off .nm b{color:var(--ink-2);font-weight:500}
+@media (max-width:760px){ .catrow{grid-template-columns:10px minmax(0,1fr) auto 18px} .catrow .bar,.catrow .n:not(.v),.catrow .iss{display:none} }
 
-/* ---------- Upload ---------- */
-.drop{border:2px dashed var(--line-2);border-radius:var(--r);background:var(--card);padding:56px 24px;text-align:center;cursor:pointer;transition:border-color .12s,background .12s}
-.drop:hover,.drop.drag{border-color:var(--gold);background:var(--gold-soft)}
-.drop .ico{font-size:34px;line-height:1}
-.drop h2{margin:14px 0 6px;font-size:20px;font-weight:800}
+.li{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 20px;border-top:1px solid var(--line)}
+.li .dt{width:8px;height:8px;border-radius:50%;background:var(--cat)}
+.li .t b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .t span{display:block;font-size:12.5px;color:var(--ink-3)}
+.li .v{color:var(--ink-2);white-space:nowrap;text-align:right}
+.li .v b{color:var(--ink);font-weight:600}
+.allok{display:flex;gap:10px;align-items:center;color:var(--green);padding:14px 20px 18px;border-top:1px solid var(--line)}
+.more{padding:10px 20px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
+@media (max-width:600px){ .li{grid-template-columns:8px minmax(0,1fr) auto} .li .st{display:none} }
+
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.st.red{color:var(--red)} .st.amber{color:var(--amber)} .st.blue{color:var(--blue)} .st.teal{color:var(--green)} .st.grey{color:var(--ink-3)}
+
+/* ---------- Tom tilstand ---------- */
+.drop{display:block;width:100%;border:1.5px dashed var(--line-2);border-radius:var(--r);background:var(--surface);padding:52px 24px;text-align:center;cursor:pointer;transition:border-color .12s,background .12s;color:var(--ink)}
+.drop:hover,.drop.drag{border-color:var(--accent);background:var(--accent-soft)}
+.drop .ico{width:44px;height:44px;border-radius:50%;background:var(--hover);display:inline-grid;place-items:center;color:var(--ink-2)}
+.drop h2{margin:14px 0 6px;font-size:17px;font-weight:600}
 .drop p{margin:0 auto;color:var(--ink-2);max-width:56ch}
-.drop .cats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px}
-.drop .cats span{display:inline-flex;gap:7px;align-items:center;border:1px solid var(--line-2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:700;background:var(--card)}
-.drop .cats i{width:8px;height:8px;border-radius:50%;background:var(--cat)}
+.drop .hint{margin-top:10px;font-size:13px;color:var(--accent);font-weight:500}
 
-/* ---------- Værktøjslinje + tabel ---------- */
+/* ---------- Værktøjslinje ---------- */
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .search{flex:1 1 280px;min-width:0;position:relative}
-.search input{width:100%;padding:9px 12px 9px 36px;border:1px solid var(--line-2);border-radius:10px;background:var(--card)}
-.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-3)}
-.seg{display:inline-flex;background:var(--sunk);padding:3px;border-radius:10px;gap:2px;flex-wrap:wrap;border:1px solid var(--line)}
-.seg button,.seg label{border:none;background:transparent;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:13.5px;color:var(--ink-2);font-weight:700;white-space:nowrap}
+.search input{width:100%;padding:8px 12px 8px 34px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface)}
+.search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-3)}
+.seg{display:inline-flex;background:var(--hover);padding:3px;border-radius:9px;gap:2px;flex-wrap:wrap}
+.seg button,.seg label{border:none;background:transparent;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink-2);font-weight:500;white-space:nowrap}
 .seg button:hover,.seg label:hover{color:var(--ink)}
-.seg .on,.seg label:has(input:checked){background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.seg .on,.seg label:has(input:checked){background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .seg input{display:none}
-.seg .c{color:var(--ink-3);margin-left:6px;font-weight:600}
-.seg .c.r{color:var(--bad)}
-.btn{border:1px solid var(--line-2);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13.5px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
-.btn:hover{border-color:var(--ink-3)}
-.btn.primary{background:var(--gold);border-color:var(--gold);color:#1b1405}
-.btn.sm{padding:6px 11px;font-size:13px}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.toggle{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink-2);cursor:pointer;user-select:none}
-.toggle input{width:16px;height:16px;accent-color:var(--gold)}
+.seg .c{color:var(--ink-3);margin-left:6px}
+.seg .c.r{color:var(--red)}
+.toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer;user-select:none}
+.toggle input{width:15px;height:15px;accent-color:var(--accent)}
+.q{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;border:1px solid var(--line-2);color:var(--ink-3);font-size:10.5px;font-weight:600;cursor:help;flex-shrink:0}
 
-.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:auto;max-height:calc(100vh - 150px);min-height:220px;box-shadow:var(--shadow)}
-table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
-thead th{position:sticky;top:0;background:var(--card-2);z-index:2;text-align:left;font-size:12.5px;font-weight:800;color:var(--ink-2);padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+/* ---------- Tabel (ruller med siden, ingen indre scrollbar) ---------- */
+.tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:separate;border-spacing:0}
+thead th{position:sticky;top:var(--hdr-h);background:var(--surface-2);z-index:2;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+thead tr:first-child th:first-child{border-top-left-radius:var(--r)}
+thead tr:first-child th:last-child{border-top-right-radius:var(--r)}
 thead th:hover{color:var(--ink)}
-thead th .arr{font-size:10px;color:var(--gold)}
+thead th .arr{font-size:9px;color:var(--accent)}
 th.r,td.r{text-align:right;white-space:nowrap}
-th.col-order{color:var(--gold-ink)}
-td.col-order,th.col-order{background:color-mix(in srgb,var(--gold-soft) 55%,var(--card))}
-thead th.col-order{background:color-mix(in srgb,var(--gold-soft) 85%,var(--card-2))}
+th.col-order{color:var(--accent)}
+td.col-order{background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface))}
 tbody td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
 tbody tr:last-child td{border-bottom:none}
-tbody tr:hover td{background:var(--card-2)}
-tbody tr:hover td.col-order{background:color-mix(in srgb,var(--gold-soft) 80%,var(--card))}
-tr.st-red td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
-tr.st-amber td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
+tbody tr:hover td{background:var(--hover)}
+tr.st-red td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+tr.st-amber td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 tr.zero td{color:var(--ink-3)}
-tr.zero td.desc .d{color:var(--ink-2);font-weight:600}
-td.desc{min-width:240px;max-width:400px}
-td.desc .d{font-weight:700}
+td.desc{min-width:240px;max-width:420px}
+td.desc .d{font-weight:500;color:var(--ink)}
+tr.zero td.desc .d{color:var(--ink-2);font-weight:400}
+td.desc .flags{display:flex;gap:12px;flex-wrap:wrap;margin-top:2px}
 td.desc .why{font-size:12px;color:var(--ink-3);margin-top:2px}
 td.code{font-size:13px;white-space:nowrap;color:var(--ink-3)}
-td .u{font-size:11px;color:var(--ink-3);margin-left:3px;font-weight:600}
-td.neg{color:var(--bad);font-weight:800}
-td.newst{font-weight:800}
-.tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
-.su-in{width:62px;padding:6px 8px;border:1px solid var(--line-2);border-radius:8px;background:var(--card);text-align:right}
-.su-in.missing{border:2px solid var(--bad);background:var(--bad-soft);color:var(--bad)}
-.su-in.missing::placeholder{color:var(--bad);font-weight:800}
-.qty{display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:9px;overflow:hidden;background:var(--card)}
-.qty button{border:none;background:transparent;width:30px;height:34px;cursor:pointer;font-size:17px;color:var(--ink-3)}
-.qty button:hover{background:var(--sunk);color:var(--ink)}
-.qty input{width:56px;border:none;text-align:center;height:34px;font-weight:800;font-size:16px;background:transparent}
-.qty.has{border-color:var(--gold)}
-.qty.manual{border:2px solid var(--man)} .qty.manual input{color:var(--man)}
-.qty input:focus{outline:none} .qty:focus-within{box-shadow:0 0 0 2px var(--gold)}
-tfoot td{position:sticky;bottom:0;background:var(--card-2);font-weight:800;border-top:1px solid var(--line);padding:10px 12px;z-index:1}
-.empty-state{padding:44px 20px;text-align:center;color:var(--ink-2)}
+td .u{font-size:11px;color:var(--ink-3);margin-left:3px}
+td.neg{color:var(--red);font-weight:500}
+td.newst{font-weight:500;color:var(--ink)}
+.su-in{width:60px;padding:5px 8px;border:1px solid var(--line-2);border-radius:7px;background:var(--surface);text-align:right}
+.su-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.su-in.missing{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.su-in.missing::placeholder{color:var(--red)}
+.qty{display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--surface)}
+.qty button{border:none;background:transparent;width:26px;height:30px;cursor:pointer;font-size:15px;color:var(--ink-3)}
+.qty button:hover{background:var(--hover);color:var(--ink)}
+.qty input{width:50px;border:none;text-align:center;height:30px;font-weight:600;background:transparent}
+.qty.has input{color:var(--accent)}
+.qty.manual{border-color:var(--blue)} .qty.manual input{color:var(--blue)}
+.qty input:focus{outline:none} .qty:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+tfoot td{position:sticky;bottom:0;background:var(--surface-2);font-weight:500;border-top:1px solid var(--line);padding:10px 12px;z-index:1;color:var(--ink-2)}
+tfoot td:first-child{border-bottom-left-radius:var(--r)} tfoot td:last-child{border-bottom-right-radius:var(--r)}
+tfoot td b{color:var(--ink);font-weight:600}
+.empty-state{padding:40px 20px;text-align:center;color:var(--ink-3)}
 .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3);margin:10px 2px 0}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+@media (max-width:900px){ .tablewrap{overflow-x:auto} thead th{top:0} }
 
 /* Modtagelse */
-.inv-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:16px}
-.inv{background:var(--card);border:1.5px solid var(--line);border-radius:var(--r);padding:14px 16px;text-align:left;cursor:pointer;box-shadow:var(--shadow)}
-.inv:hover{border-color:var(--line-2)}
-.inv.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
-.inv .no{font-size:12.5px;font-weight:700;color:var(--ink-3)}
-.inv .amt{font-size:21px;font-weight:800;letter-spacing:-.01em;margin:2px 0}
-.inv .st{font-size:12.5px;font-weight:700}
-.inv .st.ok{color:var(--ok)} .inv .st.bad{color:var(--bad)}
-.inv .m{font-size:12.5px;color:var(--ink-2)}
+.invrow{display:grid;grid-template-columns:minmax(120px,1fr) 190px 170px 130px 18px;gap:16px;align-items:center;padding:11px 20px;border-top:1px solid var(--line);cursor:pointer}
+.invrow:hover{background:var(--hover)}
+.invrow.on{background:var(--accent-soft)}
+.invrow .no{font-weight:600}
+.invrow .no span{display:block;font-weight:400;font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.invrow .n{text-align:right;color:var(--ink-2)}
+.invrow .v{text-align:right;font-weight:600}
+@media (max-width:760px){ .invrow{grid-template-columns:minmax(0,1fr) auto} .invrow .n,.invrow .st,.invrow .ch{display:none} }
 .rx-table td.chk,.rx-table th.chk{width:44px;text-align:center}
-.rx-table input[type=checkbox]{width:18px;height:18px;accent-color:var(--gold);cursor:pointer;vertical-align:middle}
+.rx-table input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;vertical-align:middle}
 .rx-table tr.off td{color:var(--ink-3)}
-.rx-table tr.off td.desc .d{text-decoration:line-through;color:var(--ink-3);font-weight:600}
-.rx-table thead tr.f th{top:41px;padding:6px;background:var(--card);cursor:default}
-.rx-table thead tr.f input{width:100%;min-width:56px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;background:var(--card);font-weight:500}
-.rx-table thead tr.f input.act{border-color:var(--gold);background:var(--gold-soft)}
+.rx-table tr.off td.desc .d{text-decoration:line-through;color:var(--ink-3);font-weight:400}
+.rx-table thead tr.f th{top:calc(var(--hdr-h) + 39px);padding:6px;background:var(--surface);cursor:default;border-radius:0}
+.rx-table thead tr.f input{width:100%;min-width:56px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;background:var(--surface)}
+.rx-table thead tr.f input.act{border-color:var(--accent);background:var(--accent-soft)}
+@media (max-width:900px){ .rx-table thead tr.f th{top:39px} }
 
 /* ---------- Dialoger ---------- */
-.modal-bg{position:fixed;inset:0;background:rgba(10,18,28,.55);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:48px 16px;overflow:auto}
+.modal-bg{position:fixed;inset:0;background:rgba(15,20,28,.4);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:56px 16px;overflow:auto}
 .modal-bg.show{display:flex}
-.modal{background:var(--card);border-radius:14px;max-width:640px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.3);border:1px solid var(--line)}
-.modal.wide{max-width:780px}
-.modal header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
-.modal header h2{margin:0;font-size:18px;font-weight:800}
-.modal .body{padding:20px 22px;display:flex;flex-direction:column;gap:18px}
-.modal footer{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-.x-btn{border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:24px;line-height:1;padding:2px 6px;border-radius:6px}
-.x-btn:hover{background:var(--sunk);color:var(--ink)}
+.modal{background:var(--surface);border-radius:12px;max-width:620px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.18);border:1px solid var(--line)}
+.modal.wide{max-width:760px}
+.modal header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.modal header h2{margin:0;font-size:16px;font-weight:600}
+.modal .body{padding:18px 20px;display:flex;flex-direction:column;gap:18px}
+.modal footer{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.x-btn{border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:22px;line-height:1;padding:2px 6px;border-radius:6px}
+.x-btn:hover{background:var(--hover);color:var(--ink)}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
-.field > label,.lab{font-size:14px;font-weight:800}
+.field > label,.lab{font-size:13px;font-weight:600}
 .help{font-size:13px;color:var(--ink-2)}
-.field input[type=number],.field input[type=text],.field select{padding:8px 10px;border:1px solid var(--line-2);border-radius:9px;background:var(--card);width:100%;min-width:0}
+.field input[type=number],.field input[type=text],.field select{padding:7px 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);width:100%;min-width:0}
 .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 @media (max-width:560px){.row3,.row4{grid-template-columns:1fr 1fr}}
-.check{display:flex;gap:10px;align-items:center;font-size:14.5px;cursor:pointer}
-.check input{width:17px;height:17px;accent-color:var(--gold);flex-shrink:0}
-.note{padding:11px 13px;border-radius:9px;font-size:14px}
-.note.ok{background:var(--ok-soft);color:var(--ok)} .note.bad{background:var(--bad-soft);color:var(--bad)}
-.rules-table{width:100%;font-size:14px;border-collapse:collapse}
-.rules-table th{font-size:12.5px;color:var(--ink-2);font-weight:700;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);position:static;background:none;cursor:default}
+.check{display:flex;gap:10px;align-items:center;font-size:14px;cursor:pointer}
+.check input{width:16px;height:16px;accent-color:var(--accent);flex-shrink:0}
+.note{padding:10px 12px;border-radius:8px;font-size:13.5px}
+.note.ok{background:var(--green-soft);color:var(--green)} .note.bad{background:var(--red-soft);color:var(--red)}
+.tag{display:inline-flex;font-size:12px;font-weight:500;padding:1px 7px;border-radius:5px;line-height:1.6}
+.tag.red{background:var(--red-soft);color:var(--red)}
+.rules-table{width:100%;font-size:13.5px;border-collapse:collapse}
+.rules-table th{font-size:12px;color:var(--ink-3);font-weight:500;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);position:static;background:none;cursor:default}
 .rules-table td{padding:5px 4px;border-bottom:1px solid var(--line)}
-.rules-table input{width:100%;padding:6px 8px;border:1px solid var(--line-2);border-radius:7px;background:var(--card)}
-.csv-preview{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;background:var(--sunk);border-radius:9px;padding:10px 12px;white-space:pre;overflow:auto;max-height:150px}
-.helpdoc h3{font-size:16px;margin:0 0 6px}
-.helpdoc ol,.helpdoc ul{margin:0;padding-left:20px}
-.helpdoc li{margin:5px 0}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--head);color:#fff;padding:11px 18px;border-radius:10px;opacity:0;transition:.2s;z-index:70;font-size:14px;font-weight:600;max-width:calc(100% - 32px);pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.rules-table input{width:100%;padding:5px 8px;border:1px solid var(--line-2);border-radius:6px;background:var(--surface)}
+.csv-preview{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--hover);border-radius:8px;padding:10px 12px;white-space:pre;overflow:auto;max-height:150px}
+.helpdoc h3{font-size:14.5px;margin:0 0 6px;font-weight:600}
+.helpdoc ol,.helpdoc ul{margin:0;padding-left:20px;color:var(--ink-2)}
+.helpdoc li{margin:4px 0}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:9px;opacity:0;transition:.2s;z-index:70;font-size:13.5px;max-width:calc(100% - 32px);pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 @media print{
-  .top,.filebar,.tabs,.toolbar,.legend,.tabdesc,.qty button{display:none !important}
+  .hdr,.toolbar,.legend,.lead,.phead .acts,.qty button{display:none !important}
   body{background:#fff;color:#000;font-size:11px}
-  .tablewrap{max-height:none;overflow:visible;border:none;box-shadow:none}
+  .tablewrap{border:none;box-shadow:none}
   thead th,tfoot td{position:static}
   tr.zero{display:none}
   .qty{border:none} .qty input{width:auto}
@@ -265,13 +269,8 @@ tfoot td{position:sticky;bottom:0;background:var(--card-2);font-weight:800;borde
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap" id="top"></div></header>
-<div class="wrap">
-  <div class="filebar" id="filebar"></div>
-  <nav class="tabs" id="tabs"></nav>
-  <div class="tabdesc" id="desc"></div>
-  <main id="main" style="padding-bottom:70px"></main>
-</div>
+<header class="hdr"><div class="wrap hdr-row" id="top"></div></header>
+<div class="wrap"><main id="main" style="padding-bottom:80px"></main></div>
 
 <input type="file" id="file_any" accept=".xls,.xlsx,.xlsm" multiple hidden>
 <input type="file" id="file_ltc" accept=".xls,.xlsx" hidden>
@@ -352,6 +351,9 @@ function saveSettingsStore(){ store.set(K_SET, settings); }
    ===================================================================== */
 const I18N = {
   da: {
+    filesLoaded:(n,m)=>`${n} af ${m} filer indlæst`, kpiUnits:'Enheder', kpiUnitsSub:'samlet antal der bestilles', kpiCheck:'Skal tjekkes', kpiCheckSub:'se listen nedenfor',
+    cardCats:'Kategorier', cardCatsSub:'Klik for at åbne', notLoadedLong:'Ikke indlæst endnu', toCheck: n=>`${n} skal tjekkes`, warnings: n=>`${n} advarsler`, ready:'Klar', pcs:'stk',
+    catMeta:(o,l,v)=>`${o} af ${l} varer bestilles, ${v}`, xlsShort:'Excel',
     kicker:'M/F Norrøna · Shop', title:'Shop Bestilling',
     load:'Indlæs filer', loadCdl:'Indlæs CDL', copySummary:'Kopiér resumé', xlsOverview:'Overblik (Excel)', order:'Order Heinemann', csv:'CSV til Winpos',
     print:'Print', settings:'Indstillinger', help:'Hjælp', theme:'Skift lyst/mørkt',
@@ -360,17 +362,17 @@ const I18N = {
     tabOverview:'Overblik', tabReceive:'Varemodtagelse',
     cat_ltc:'LTC', cat_perfume:'Perfume', cat_andet:'Andet', cat_cosmetic:'Cosmetic & Hygiejne',
     desc_overview:'Ugens bestilling samlet. Ret de markerede linjer, og eksportér til Heinemann.',
-    desc_overview_q:'Lager nu = lager i Winpos − solgt. Bestil = solgt + 1 kasse − lager nu, rundet til hele kasser. Nyt lager = lager nu + bestil.',
-    desc_ltc:'Bestil = solgt + 1 kasse − lager nu, rundet til hele kasser. Cola, Fanta, Redbull og Capri Sonne regnes i kasser.',
+    desc_overview_q:'Lager nu = lager i Winpos − solgt. Bestil = solgt + 1 kolli − lager nu, rundet til hele kolli. Nyt lager = lager nu + bestil.',
+    desc_ltc:'Bestil = solgt + 1 kolli − lager nu, rundet til hele kolli. Cola, Fanta, Redbull og Capri Sonne regnes i kolli.',
     desc_perfume: m=>`Bestil = solgt − lager nu, dog altid mindst ${m} på hylden.`,
-    desc_andet: m=>`Bestil = solgt + 1 kasse − lager nu, dog altid mindst ${m} på hylden. Kasser/box bruges kun, når feltet er et tal.`,
+    desc_andet: m=>`Bestil = solgt + 1 kolli − lager nu, dog altid mindst ${m} på hylden. Antal pr. kolli bruges kun, når feltet er et tal.`,
     desc_receive:'Indlæs CDL-filen fra Heinemann, fravælg det der ikke skal i Winpos, og hent CSV-filen.',
     // overblik
     kpiBuy:'Indkøb denne uge', kpiBuySub:'Indkøbsværdi pr. kategori', kpiBuyQ:'Summen af Bestil × indkøbspris for alle kategorier.',
     kpiLines:'Linjer til bestilling', kpiLinesSub: n=>`af ${n} varer i alt`, kpiLinesQ:'Antal varer, hvor Bestil er større end 0.',
-    kpiReady:'Klar til eksport', kpiReadySub:'Andel af linjer uden fejl', kpiReadyQ:'Linjer med manglende kasser/box eller negativt lager tæller som fejl.',
+    kpiReady:'Klar til eksport', kpiReadySub:'Andel af linjer uden fejl', kpiReadyQ:'Linjer med manglende antal pr. kolli eller negativt lager tæller som fejl.',
     vsWeek:(p,w)=>`${p} mod uge ${w}`, total:'i alt',
-    stMissing:'Mangler kasser/box', stNeg:'Solgt mere end lager', stManual:'Rettet manuelt',
+    stMissing:'Mangler antal pr. kolli', stNeg:'Solgt mere end lager', stManual:'Rettet manuelt',
     cardCheck:'Tjek før du bestiller', cardCheckSub:'Linjer der kræver din opmærksomhed', noIssues:'Ingen fejl fundet',
     fix:'Ret', more: n=>`Og ${n} mere. Åbn kategorien og vælg "Tjek".`,
     cardTop:'Største bestillinger', cardTopSub:'Efter indkøbsværdi', nothing:'Intet at bestille',
@@ -383,23 +385,23 @@ const I18N = {
     fAll:'Alle', fOrder:'Skal bestilles', fCheck:'Tjek', fManual:'Rettet',
     showCalc:'Vis udregning', resetEdits:'Nulstil rettelser', exportCat: c=>`Excel: ${c}`,
     col_code:'GH. Code', col_art:'Artikel Nr', col_desc:'Beskrivelse', col_sold:'Solgt', col_winpos:'Lager i Winpos', col_real:'Lager nu',
-    col_su:'Kasser/box', col_order:'Bestil', col_new:'Nyt lager', col_price:'Pris', col_value:'Værdi', col_unit:'Enhed', col_note:'Bemærkning', col_sug:'Forslag',
-    tip_real:'Lager i Winpos minus solgt', tip_su:'Antal pr. kasse. Der bestilles i hele kasser.', tip_new:'Lager nu + bestil', tip_winpos:'Winpos’ eget lagertal, til kontrol',
+    col_su:'Antal pr. kolli', col_order:'Bestil', col_new:'Nyt lager', col_price:'Pris', col_value:'Værdi', col_unit:'Enhed', col_note:'Bemærkning', col_sug:'Forslag',
+    tip_real:'Lager i Winpos minus solgt', tip_su:'Antal stk pr. kolli. Der bestilles i hele kolli.', tip_new:'Lager nu + bestil', tip_winpos:'Winpos’ eget lagertal, til kontrol',
     foot:(n,o)=>`${n} varer vist, ${o} bestilles`, noRows:'Ingen varer matcher søgningen.',
-    fl_missing:'Mangler kasser/box', fl_neg:'Solgt mere end lager', fl_manual: s=>`Rettet (forslag ${s})`, fl_rule: f=>`Kasse á ${f}`, fl_mem:'Husket',
-    cs:'ks',
-    calc_need:(s,b,r,n,sug,rd)=>`Solgt ${s}${b?' + 1 kasse':''} − lager ${r} = ${n}${rd?` → ${sug}`:''}`,
+    fl_missing:'Mangler antal pr. kolli', fl_neg:'Solgt mere end lager', fl_manual: s=>`Rettet (forslag ${s})`, fl_rule: f=>`Kolli á ${f}`, fl_mem:'Husket',
+    cs:'kolli',
+    calc_need:(s,b,r,n,sug,rd)=>`Solgt ${s}${b?' + 1 kolli':''} − lager ${r} = ${n}${rd?` → ${sug}`:''}`,
     calc_min:(m,r,n,sug,rd)=>`Min. ${m} på hylden − lager ${r} = ${n}${rd?` → ${sug}`:''}`,
     calc_ok:(r,tg)=>`Lager ${r} dækker ${tg}`,
-    lgMissing:'Mangler kasser/box', lgNeg:'Solgt mere end lager', lgManual:'Rettet af dig', lgEnter:'Enter = næste linje',
+    lgMissing:'Mangler antal pr. kolli', lgNeg:'Solgt mere end lager', lgManual:'Rettet af dig', lgEnter:'Enter = næste linje',
     tLoaded:(c,o,l,r)=>`${c} indlæst: ${o} af ${l} varer skal bestilles${r?`, ${r} skal tjekkes`:''}`,
-    tSu: v=>`Kasser/box ${v} gemt og huskes til næste uge`, tSuDel:'Kasser/box fjernet', tSuBad:'Kasser/box skal være et helt tal',
+    tSu: v=>`Antal pr. kolli ${v} gemt og huskes til næste uge`, tSuDel:'Antal pr. kolli fjernet', tSuBad:'Antal pr. kolli skal være et helt tal',
     tReset:'Rettelser nulstillet', tUnknown: f=>`Kunne ikke se, hvilken kategori "${f}" hører til. Åbn kategorien og indlæs den der.`,
     cRemove: c=>`Fjern ${c}-filen og dine rettelser?`, cMismatch:(f,g,c)=>`Filnavnet "${f}" ligner ${g}, men du har valgt ${c}. Fortsæt?`,
     errRead:'Kunne ikke læse filen:',
     // eksport
     expTitle:'Eksportér Order Heinemann', expCats:'Kategorier', expFiles:'Filer', expOne:'Én samlet fil', expSplit:'Én fil pr. kategori',
-    expReady:(l,u)=>`${l} linjer og ${u} enheder er klar.`, expRed: n=>`${n} linjer mangler kasser/box og eksporteres uden afrunding.`, expNoArt: n=>`${n} linjer mangler Artikel Nr.`,
+    expReady:(l,u)=>`${l} linjer og ${u} enheder er klar.`, expRed: n=>`${n} linjer mangler antal pr. kolli og eksporteres uden afrunding.`, expNoArt: n=>`${n} linjer mangler Artikel Nr.`,
     expCols:'Kolonner: GH article no. = GH. Code, Customer article no. = Artikel Nr, Order quantity = Bestil. Kun linjer med antal over 0.',
     copyLines:'Kopiér linjer', cancel:'Annullér', download:'Download', tCopied:'Kopieret. Kan sættes direkte ind i Excel.', tExported: n=>`${n} fil(er) hentet`, tNothing:'Intet at eksportere', pickCat:'Vælg mindst én kategori',
     noXlsx:'Excel-biblioteket er ikke indlæst. Tjek internetforbindelsen.', tOverview:'Overblik hentet', tSummary:'Resumé kopieret',
@@ -419,12 +421,12 @@ const I18N = {
     csvHeadNames:'Overskrifter', csvHelp:'Kolonnerne er altid Article, Delivery quantity og Price per Sales Unit (som fanen CSV PC).', csvPrev:'Forhåndsvisning',
     csvMore: n=>`… (${n} linjer i alt)`, tCsv: n=>`${n} CSV-fil(er) hentet`, pickInv:'Vælg mindst én faktura', csvNone:'Ingen markerede linjer',
     // indstillinger
-    sTitle:'Indstillinger', sOrder:'Bestilling', sBuffer:'Bestil én ekstra kasse, så hylden ikke bliver tom', sWinpos:'Vis "Lager i Winpos", så du kan sammenligne med Winpos',
-    sMin:'Mindst på hylden', sCover:'Dæk salget', sRound:'Afrunding til kasse', sNearest:'Til nærmeste (15 → 12, 20 → 24)', sUp:'Altid op (15 → 24)',
-    sRules:'Særregler (beskrivelsen indeholder …)', sText:'Tekst', sFactor:'1 kasse =', sStep:'Bestil i hele', sAddRule:'Tilføj regel',
-    sRulesHelp:'1 kasse = antal stk i én kasse. Winpos lægger solgt × dette tal til lageret, så appen trækker det fra igen. Bestil i hele: Cola og Fanta bestilles i 99 kasser ad gangen, Redbull i hele kasser.',
-    sMem:'Huskede kasser/box', sMemN: n=>`${n} varer husket.`, sClear:'Slet alle', sBackup:'Gem backup', sRestore:'Indlæs backup', sReset:'Nulstil', sSave:'Gem', tSaved:'Indstillinger gemt',
-    cReset:'Nulstil indstillinger til standard?', cClearSu:'Slet alle huskede kasser/box?', badBackup:'Filen er ikke en gyldig backup.', tRestored:'Backup indlæst',
+    sTitle:'Indstillinger', sOrder:'Bestilling', sBuffer:'Bestil ét ekstra kolli, så hylden ikke bliver tom', sWinpos:'Vis "Lager i Winpos", så du kan sammenligne med Winpos',
+    sMin:'Mindst på hylden', sCover:'Dæk salget', sRound:'Afrunding til kolli', sNearest:'Til nærmeste (15 → 12, 20 → 24)', sUp:'Altid op (15 → 24)',
+    sRules:'Særregler (beskrivelsen indeholder …)', sText:'Tekst', sFactor:'1 kolli = stk', sStep:'Bestil i hele', sAddRule:'Tilføj regel',
+    sRulesHelp:'1 kolli = antal stk i ét kolli. Winpos lægger solgt × dette tal til lageret, så appen trækker det fra igen. Bestil i hele: Cola og Fanta bestilles i 99 kolli ad gangen, Redbull i hele kolli.',
+    sMem:'Husket antal pr. kolli', sMemN: n=>`${n} varer husket.`, sClear:'Slet alle', sBackup:'Gem backup', sRestore:'Indlæs backup', sReset:'Nulstil', sSave:'Gem', tSaved:'Indstillinger gemt',
+    cReset:'Nulstil indstillinger til standard?', cClearSu:'Slet alt husket antal pr. kolli?', badBackup:'Filen er ikke en gyldig backup.', tRestored:'Backup indlæst',
     // hjælp
     hTitle:'Sådan bruger du appen',
     hOrder:'Bestilling hver uge', hO:[
@@ -432,14 +434,14 @@ const I18N = {
       'Tryk Indlæs filer, eller træk alle filerne ind på siden på én gang.',
       'Se Overblik. Under "Tjek før du bestiller" står det, der skal rettes. Tryk Ret for at hoppe til linjen.',
       'Ret antal i Bestil-feltet eller med − og +. Enter går til næste linje.',
-      'Mangler Kasser/box, så skriv det. Det huskes til næste uge.',
+      'Mangler antal pr. kolli, så skriv det. Det huskes til næste uge.',
       'Tryk Order Heinemann for bestillingsfilen, eller Overblik (Excel) for alle linjer med beregningen.'],
     hCalc:'Sådan regnes det', hC:[
       'Lager nu = lager i Winpos − solgt.',
-      'Bestil = solgt + 1 kasse − lager nu, rundet til hele kasser. Dækker lageret, bestilles 0.',
+      'Bestil = solgt + 1 kolli − lager nu, rundet til hele kolli. Dækker lageret, bestilles 0.',
       'Nyt lager = lager nu + bestil.',
       'Perfume, Andet og Cosmetic & Hygiejne har altid mindst 4 på hylden.',
-      'Cola, Fanta og Redbull: Winpos har lagt solgt × 24 til lageret. Appen trækker det fra og regner i kasser á 24.'],
+      'Cola, Fanta og Redbull: Winpos har lagt solgt × 24 til lageret. Appen trækker det fra og regner i kolli á 24.'],
     hRx:'Varemodtagelse', hR:[
       'Åbn fanen Varemodtagelse og indlæs CDL-filen.',
       'Hver faktura får sit eget kort. "Sum passer" betyder, at linjerne stemmer med den gule sumlinje.',
@@ -448,6 +450,9 @@ const I18N = {
     hPriv:'Alt gemmes kun i din egen browser. Brug "Gem backup" under Indstillinger, hvis du skifter computer.',
   },
   en: {
+    filesLoaded:(n,m)=>`${n} of ${m} files loaded`, kpiUnits:'Units', kpiUnitsSub:'total quantity ordered', kpiCheck:'To check', kpiCheckSub:'see the list below',
+    cardCats:'Categories', cardCatsSub:'Click to open', notLoadedLong:'Not loaded yet', toCheck: n=>`${n} to check`, warnings: n=>`${n} warnings`, ready:'Ready', pcs:'pcs',
+    catMeta:(o,l,v)=>`${o} of ${l} items to order, ${v}`, xlsShort:'Excel',
     kicker:'M/F Norrøna · Shop', title:'Shop Ordering',
     load:'Load files', loadCdl:'Load CDL', copySummary:'Copy summary', xlsOverview:'Overview (Excel)', order:'Order Heinemann', csv:'CSV for Winpos',
     print:'Print', settings:'Settings', help:'Help', theme:'Toggle light/dark',
@@ -456,16 +461,16 @@ const I18N = {
     tabOverview:'Overview', tabReceive:'Goods receipt',
     cat_ltc:'LTC', cat_perfume:'Perfume', cat_andet:'Other', cat_cosmetic:'Cosmetics & Hygiene',
     desc_overview:'This week’s order at a glance. Fix the flagged lines, then export to Heinemann.',
-    desc_overview_q:'Stock now = Winpos stock − sold. Order = sold + 1 case − stock now, rounded to whole cases. New stock = stock now + order.',
-    desc_ltc:'Order = sold + 1 case − stock now, rounded to whole cases. Cola, Fanta, Redbull and Capri Sonne are counted in cases.',
+    desc_overview_q:'Stock now = Winpos stock − sold. Order = sold + 1 pack − stock now, rounded to whole packs. New stock = stock now + order.',
+    desc_ltc:'Order = sold + 1 pack − stock now, rounded to whole packs. Cola, Fanta, Redbull and Capri Sonne are counted in packs.',
     desc_perfume: m=>`Order = sold − stock now, always keeping at least ${m} on the shelf.`,
-    desc_andet: m=>`Order = sold + 1 case − stock now, always keeping at least ${m} on the shelf. Case/box is used only when the field is a number.`,
+    desc_andet: m=>`Order = sold + 1 pack − stock now, always keeping at least ${m} on the shelf. Units per pack is used only when the field is a number.`,
     desc_receive:'Load the CDL file from Heinemann, exclude what should not go into Winpos, and download the CSV.',
     kpiBuy:'Purchases this week', kpiBuySub:'Purchase value by category', kpiBuyQ:'Sum of Order × purchase price across all categories.',
     kpiLines:'Lines to order', kpiLinesSub: n=>`of ${n} items in total`, kpiLinesQ:'Number of items where Order is above 0.',
-    kpiReady:'Ready to export', kpiReadySub:'Share of lines without issues', kpiReadyQ:'Lines with a missing case size or negative stock count as issues.',
+    kpiReady:'Ready to export', kpiReadySub:'Share of lines without issues', kpiReadyQ:'Lines with a missing pack size or negative stock count as issues.',
     vsWeek:(p,w)=>`${p} vs week ${w}`, total:'total',
-    stMissing:'Case size missing', stNeg:'Sold more than stock', stManual:'Edited manually',
+    stMissing:'Pack size missing', stNeg:'Sold more than stock', stManual:'Edited manually',
     cardCheck:'Check before ordering', cardCheckSub:'Lines that need your attention', noIssues:'No issues found',
     fix:'Fix', more: n=>`And ${n} more. Open the category and choose "Check".`,
     cardTop:'Largest orders', cardTopSub:'By purchase value', nothing:'Nothing to order',
@@ -477,22 +482,22 @@ const I18N = {
     fAll:'All', fOrder:'To order', fCheck:'Check', fManual:'Edited',
     showCalc:'Show calculation', resetEdits:'Reset edits', exportCat: c=>`Excel: ${c}`,
     col_code:'GH. Code', col_art:'Article no.', col_desc:'Description', col_sold:'Sold', col_winpos:'Winpos stock', col_real:'Stock now',
-    col_su:'Case/box', col_order:'Order', col_new:'New stock', col_price:'Price', col_value:'Value', col_unit:'Unit', col_note:'Note', col_sug:'Suggested',
-    tip_real:'Winpos stock minus sold', tip_su:'Units per case. Orders are placed in whole cases.', tip_new:'Stock now + order', tip_winpos:'Winpos’ own stock figure, for reference',
+    col_su:'Units per pack', col_order:'Order', col_new:'New stock', col_price:'Price', col_value:'Value', col_unit:'Unit', col_note:'Note', col_sug:'Suggested',
+    tip_real:'Winpos stock minus sold', tip_su:'Units per pack. Orders are placed in whole packs.', tip_new:'Stock now + order', tip_winpos:'Winpos’ own stock figure, for reference',
     foot:(n,o)=>`${n} items shown, ${o} to order`, noRows:'No items match the search.',
-    fl_missing:'Case size missing', fl_neg:'Sold more than stock', fl_manual: s=>`Edited (suggested ${s})`, fl_rule: f=>`Case of ${f}`, fl_mem:'Remembered',
-    cs:'cs',
-    calc_need:(s,b,r,n,sug,rd)=>`Sold ${s}${b?' + 1 case':''} − stock ${r} = ${n}${rd?` → ${sug}`:''}`,
+    fl_missing:'Pack size missing', fl_neg:'Sold more than stock', fl_manual: s=>`Edited (suggested ${s})`, fl_rule: f=>`Pack of ${f}`, fl_mem:'Remembered',
+    cs:'packs',
+    calc_need:(s,b,r,n,sug,rd)=>`Sold ${s}${b?' + 1 pack':''} − stock ${r} = ${n}${rd?` → ${sug}`:''}`,
     calc_min:(m,r,n,sug,rd)=>`Min. ${m} on shelf − stock ${r} = ${n}${rd?` → ${sug}`:''}`,
     calc_ok:(r,tg)=>`Stock ${r} covers ${tg}`,
-    lgMissing:'Case size missing', lgNeg:'Sold more than stock', lgManual:'Edited by you', lgEnter:'Enter = next line',
+    lgMissing:'Pack size missing', lgNeg:'Sold more than stock', lgManual:'Edited by you', lgEnter:'Enter = next line',
     tLoaded:(c,o,l,r)=>`${c} loaded: ${o} of ${l} items to order${r?`, ${r} to check`:''}`,
-    tSu: v=>`Case size ${v} saved for next week`, tSuDel:'Case size removed', tSuBad:'Case size must be a whole number',
+    tSu: v=>`Pack size ${v} saved for next week`, tSuDel:'Pack size removed', tSuBad:'Pack size must be a whole number',
     tReset:'Edits reset', tUnknown: f=>`Could not tell which category "${f}" belongs to. Open the category and load it there.`,
     cRemove: c=>`Remove the ${c} file and your edits?`, cMismatch:(f,g,c)=>`The file name "${f}" looks like ${g}, but you chose ${c}. Continue?`,
     errRead:'Could not read the file:',
     expTitle:'Export Order Heinemann', expCats:'Categories', expFiles:'Files', expOne:'One combined file', expSplit:'One file per category',
-    expReady:(l,u)=>`${l} lines and ${u} units ready.`, expRed: n=>`${n} lines are missing a case size and will be exported without rounding.`, expNoArt: n=>`${n} lines are missing an article number.`,
+    expReady:(l,u)=>`${l} lines and ${u} units ready.`, expRed: n=>`${n} lines are missing a pack size and will be exported without rounding.`, expNoArt: n=>`${n} lines are missing an article number.`,
     expCols:'Columns: GH article no. = GH. Code, Customer article no. = article no., Order quantity = Order. Only lines above 0.',
     copyLines:'Copy lines', cancel:'Cancel', download:'Download', tCopied:'Copied. Paste straight into Excel.', tExported: n=>`${n} file(s) downloaded`, tNothing:'Nothing to export', pickCat:'Choose at least one category',
     noXlsx:'The Excel library did not load. Check the internet connection.', tOverview:'Overview downloaded', tSummary:'Summary copied',
@@ -510,26 +515,26 @@ const I18N = {
     csvTitle:'CSV for Winpos', csvInv:'Invoices', csvFiles:'Files', csvSplit:'One file per invoice', csvOne:'One combined file', csvSep:'Separator', csvDec:'Decimal mark', csvHead:'Header row', with:'Yes', without:'No',
     csvHeadNames:'Header names', csvHelp:'Columns are always Article, Delivery quantity and Price per Sales Unit (as in the CSV PC sheet).', csvPrev:'Preview',
     csvMore: n=>`… (${n} lines in total)`, tCsv: n=>`${n} CSV file(s) downloaded`, pickInv:'Choose at least one invoice', csvNone:'No selected lines',
-    sTitle:'Settings', sOrder:'Ordering', sBuffer:'Order one extra case so the shelf never runs empty', sWinpos:'Show "Winpos stock" to compare with Winpos',
-    sMin:'Minimum on shelf', sCover:'Cover sales', sRound:'Rounding to cases', sNearest:'Nearest (15 → 12, 20 → 24)', sUp:'Always up (15 → 24)',
-    sRules:'Special rules (description contains …)', sText:'Text', sFactor:'1 case =', sStep:'Order in multiples of', sAddRule:'Add rule',
-    sRulesHelp:'1 case = units in one case. Winpos adds sold × this number to stock, so the app subtracts it again. Multiples: Cola and Fanta are ordered 99 cases at a time, Redbull in whole cases.',
-    sMem:'Remembered case sizes', sMemN: n=>`${n} items remembered.`, sClear:'Delete all', sBackup:'Save backup', sRestore:'Load backup', sReset:'Reset', sSave:'Save', tSaved:'Settings saved',
-    cReset:'Reset settings to default?', cClearSu:'Delete all remembered case sizes?', badBackup:'This is not a valid backup file.', tRestored:'Backup loaded',
+    sTitle:'Settings', sOrder:'Ordering', sBuffer:'Order one extra pack so the shelf never runs empty', sWinpos:'Show "Winpos stock" to compare with Winpos',
+    sMin:'Minimum on shelf', sCover:'Cover sales', sRound:'Rounding to packs', sNearest:'Nearest (15 → 12, 20 → 24)', sUp:'Always up (15 → 24)',
+    sRules:'Special rules (description contains …)', sText:'Text', sFactor:'1 pack = units', sStep:'Order in multiples of', sAddRule:'Add rule',
+    sRulesHelp:'1 case = units in one case. Winpos adds sold × this number to stock, so the app subtracts it again. Multiples: Cola and Fanta are ordered 99 packs at a time, Redbull in whole cases.',
+    sMem:'Remembered pack sizes', sMemN: n=>`${n} items remembered.`, sClear:'Delete all', sBackup:'Save backup', sRestore:'Load backup', sReset:'Reset', sSave:'Save', tSaved:'Settings saved',
+    cReset:'Reset settings to default?', cClearSu:'Delete all remembered pack sizes?', badBackup:'This is not a valid backup file.', tRestored:'Backup loaded',
     hTitle:'How to use the app',
     hOrder:'Weekly ordering', hO:[
       'Export LTC, Perfume, Other and Cosmetics & Hygiene from Winpos as Excel.',
       'Click Load files, or drop all the files on the page at once.',
       'Open Overview. "Check before ordering" lists what needs fixing. Click Fix to jump to the line.',
       'Change quantities in the Order field or with − and +. Enter moves to the next line.',
-      'If Case/box is missing, type it in. It is remembered next week.',
+      'If units per pack is missing, type it in. It is remembered next week.',
       'Click Order Heinemann for the order file, or Overview (Excel) for every line with the calculation.'],
     hCalc:'How it is calculated', hC:[
       'Stock now = Winpos stock − sold.',
-      'Order = sold + 1 case − stock now, rounded to whole cases. If stock covers it, the order is 0.',
+      'Order = sold + 1 pack − stock now, rounded to whole packs. If stock covers it, the order is 0.',
       'New stock = stock now + order.',
       'Perfume, Other and Cosmetics & Hygiene always keep at least 4 on the shelf.',
-      'Cola, Fanta and Redbull: Winpos adds sold × 24 to stock. The app subtracts it and counts in cases of 24.'],
+      'Cola, Fanta and Redbull: Winpos adds sold × 24 to stock. The app subtracts it and counts in packs of 24.'],
     hRx:'Goods receipt', hR:[
       'Open Goods receipt and load the CDL file.',
       'Each invoice gets its own card. "Total matches" means the lines add up to the yellow total line.',
@@ -551,17 +556,19 @@ const eur = (n, d=2) => fmt(n,d) + ' €';
 function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),3000); }
 const q = text => `<span class="q" title="${esc(text)}" aria-label="${esc(text)}">?</span>`;
 const ICON = {
-  up:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>',
-  dl:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>',
-  sheet:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/></svg>',
-  copy:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
-  print:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7z"/></svg>',
-  gear:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
-  help:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg>',
-  moon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>',
-  sun:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  up:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>',
+  dl:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>',
+  sheet:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/></svg>',
+  copy:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
+  print:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7z"/></svg>',
+  gear:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
+  help:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg>',
+  moon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>',
+  sun:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   search:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
-  ok:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>',
+  ok:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>',
+  chev:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>',
+  swap:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M5 15a8 8 0 0 0 14 2M19 9A8 8 0 0 0 5 7"/></svg>',
   logo:'<svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="#D4A23C" stroke-width="5"/><path d="M16 6v4M16 22v4M6 16h4M22 16h4" stroke="#fff" stroke-width="2.6"/></svg>',
 };
 
@@ -833,80 +840,41 @@ async function loadOrderFile(cat, file, quiet){
 }
 
 /* =====================================================================
-   Grafer (SVG)
+   Topbjælke og sidehoved
    ===================================================================== */
-function donut(parts, size=132, w=16, center='', sub=''){
-  const r = (size - w) / 2, C = 2 * Math.PI * r, tot = parts.reduce((a,p)=>a+p.v,0);
-  let off = 0, segs = '';
-  if (tot > 0) for (const p of parts){ if (p.v <= 0) continue; const len = p.v / tot * C; segs += `<circle r="${r}" cx="${size/2}" cy="${size/2}" fill="none" stroke="${p.color}" stroke-width="${w}" stroke-dasharray="${Math.max(0,len-2)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 ${size/2} ${size/2})"/>`; off += len; }
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img"><circle r="${r}" cx="${size/2}" cy="${size/2}" fill="none" stroke="var(--sunk)" stroke-width="${w}"/>${segs}
-    <text x="50%" y="${size/2 + (sub?2:6)}" text-anchor="middle" font-size="${center.length>7?17:21}" font-weight="800" fill="var(--ink)">${esc(center)}</text>
-    ${sub?`<text x="50%" y="${size/2+20}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink-3)">${esc(sub)}</text>`:''}</svg>`;
-}
-function gauge(pct, size=170){
-  const w = 16, r = (size - w) / 2, cx = size/2, cy = size/2 + 4;
-  const arc = p => { const a = Math.PI * (1 - p), x = cx + r*Math.cos(a), y = cy - r*Math.sin(a); return `M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)}`; };
-  const col = pct >= 1 ? 'var(--ok)' : pct >= .97 ? 'var(--warn)' : 'var(--bad)';
-  return `<svg width="${size}" height="${size/2+22}" viewBox="0 0 ${size} ${size/2+22}" role="img">
-    <path d="${arc(1)}" fill="none" stroke="var(--sunk)" stroke-width="${w}" stroke-linecap="round"/>
-    ${pct>0?`<path d="${arc(Math.min(1,pct))}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`:''}
-    <text x="50%" y="${cy-6}" text-anchor="middle" font-size="30" font-weight="800" fill="${col}">${fmt(pct*100, pct<1&&pct>.99?1:0)}%</text></svg>`;
-}
+const catDot = c => `<span class="dt" style="--cat:${CATS[c].color}"></span>`;
+function issuesIn(c){ return session.data[c] ? summary(c).red : 0; }
 
-/* =====================================================================
-   Top, filbjælke, faner
-   ===================================================================== */
 function renderTop(){
   const rxTab = ui.tab === 'receive';
   const loaded = loadedCats();
+  const tabs = [['overview', t('tabOverview')]].concat(CAT_KEYS.map(c=>[c, catName(c)])).concat([['receive', t('tabReceive')]]);
+  const cnt = k => {
+    let n = 0;
+    if (k==='overview') n = loaded.reduce((a,c)=>a+issuesIn(c),0);
+    else if (CATS[k]) n = issuesIn(k);
+    else if (k==='receive' && rx) n = rxInvoices().filter(i=>i.check==='diff').length;
+    return n ? `<span class="cnt">${n}</span>` : '';
+  };
   $('#top').innerHTML = `
-    <div class="brand"><div class="logo">${ICON.logo}</div><div><div class="k">${esc(t('kicker'))}</div><h1>${esc(t('title'))}</h1></div></div>
+    <div class="brand"><span class="mk"></span>${esc(t('title'))}</div>
+    <nav class="nav" aria-label="${esc(t('title'))}">${tabs.map(([k,n])=>`<button class="${ui.tab===k?'on':''}" data-act="tab" data-v="${k}">${esc(n)}${cnt(k)}</button>`).join('')}</nav>
     <div class="tools">
-      <div class="lang" role="group" aria-label="Sprog / Language">
-        <button class="${settings.lang==='da'?'on':''}" data-act="lang" data-v="da">DA</button><button class="${settings.lang==='en'?'on':''}" data-act="lang" data-v="en">EN</button></div>
-      ${rxTab ? `
-        <button class="tb" data-act="pick" data-cat="cdl">${ICON.up}<span class="lbl">${t('loadCdl')}</span></button>
-        <button class="tb gold" data-act="rx-export" ${rx?'':'disabled'}>${ICON.dl}<span class="lbl">${t('csv')}</span></button>`
-      : `
-        <button class="tb" data-act="pick" data-cat="any">${ICON.up}<span class="lbl">${t('load')}</span></button>
-        <button class="tb" data-act="copy-summary" ${loaded.length?'':'disabled'}>${ICON.copy}<span class="lbl">${t('copySummary')}</span></button>
-        <button class="tb" data-act="export-overview" ${loaded.length?'':'disabled'}>${ICON.sheet}<span class="lbl">${t('xlsOverview')}</span></button>
-        <button class="tb gold" data-act="export-order" ${loaded.length?'':'disabled'}>${ICON.dl}<span class="lbl">${t('order')}</span></button>`}
-      <button class="tb icon" data-act="theme" title="${t('theme')}" aria-label="${t('theme')}">${settings.theme==='dark'?ICON.sun:ICON.moon}</button>
-      <button class="tb icon" data-act="settings" title="${t('settings')}" aria-label="${t('settings')}">${ICON.gear}</button>
-      <button class="tb icon" data-act="help" title="${t('help')}" aria-label="${t('help')}">${ICON.help}</button>
+      <div class="lang" role="group" aria-label="Sprog / Language"><button class="${settings.lang==='da'?'on':''}" data-act="lang" data-v="da">DA</button><button class="${settings.lang==='en'?'on':''}" data-act="lang" data-v="en">EN</button></div>
+      <button class="ib" data-act="theme" title="${t('theme')}" aria-label="${t('theme')}">${settings.theme==='dark'?ICON.sun:ICON.moon}</button>
+      <button class="ib" data-act="settings" title="${t('settings')}" aria-label="${t('settings')}">${ICON.gear}</button>
+      <button class="ib" data-act="help" title="${t('help')}" aria-label="${t('help')}">${ICON.help}</button>
+      ${rxTab
+        ? `<button class="btn primary" data-act="rx-export" ${rx?'':'disabled'}>${ICON.dl}<span class="lbl">${t('csv')}</span></button>`
+        : `<button class="btn primary" data-act="export-order" ${loaded.length?'':'disabled'}>${ICON.dl}<span class="lbl">${t('order')}</span></button>`}
     </div>`;
+  const h = $('.hdr'); if (h) document.documentElement.style.setProperty('--hdr-h', h.offsetHeight + 'px');
 }
-function renderFilebar(){
-  if (ui.tab === 'receive'){
-    $('#filebar').innerHTML = rx
-      ? `<span class="chip" style="--cat:var(--gold)"><span class="dot"></span>CDL<span class="n">${esc(rx.fileName.replace(/^[0-9a-f]{8}-/,''))}</span><button class="x" data-act="rx-clear" title="${t('remove')}">×</button></span>`
-      : `<button class="chip missing" data-act="pick" data-cat="cdl">+ CDL</button>`;
-    return;
-  }
-  $('#filebar').innerHTML = `<span class="chip week">${t('week', currentWeek())}</span>` + CAT_KEYS.map(c => {
-    const d = session.data[c];
-    return d ? `<span class="chip" style="--cat:${CATS[c].color}" title="${esc(d.fileName)}"><span class="dot"></span>${esc(catName(c))}<span class="n">${t('items', fmt(d.rows.length))}</span><button class="x" data-act="clear" data-cat="${c}" title="${t('remove')}" aria-label="${t('remove')}">×</button></span>`
-      : `<button class="chip missing" data-act="pick" data-cat="${c}" data-drop="${c}">+ ${esc(catName(c))}</button>`;
-  }).join('');
+function phead(title, meta, acts, cat){
+  return `<div class="phead"><div><h1>${cat?`<span class="dot" style="--cat:${CATS[cat].color}"></span>`:''}${esc(title)}</h1>${meta?`<p class="meta">${meta}</p>`:''}</div><div class="acts">${acts||''}</div></div>`;
 }
-function renderTabs(){
-  const tabs = [['overview', t('tabOverview'), '']].concat(CAT_KEYS.map(c=>[c, catName(c), CATS[c].color])).concat([['receive', t('tabReceive'), '']]);
-  $('#tabs').innerHTML = tabs.map(([k,n,col]) => {
-    let badge = '';
-    if (CATS[k] && session.data[k]){ const r = summary(k).red; if (r) badge = `<span class="b">${r}</span>`; }
-    if (k==='overview'){ const r = loadedCats().reduce((a,c)=>a+summary(c).red,0); if (r) badge = `<span class="b">${r}</span>`; }
-    if (k==='receive' && rx){ const d = rxInvoices().filter(i=>i.check==='diff').length; if (d) badge = `<span class="b">${d}</span>`; }
-    return `<button class="tab ${ui.tab===k?'on':''}" data-act="tab" data-v="${k}" ${col?`style="--cat:${col}"`:''}>${col?'<span class="cd"></span>':''}${esc(n)}${badge}</button>`;
-  }).join('');
-  let d = '';
-  if (ui.tab==='overview') d = `${esc(t('desc_overview'))} ${q(t('desc_overview_q'))}`;
-  else if (ui.tab==='receive') d = esc(t('desc_receive'));
-  else if (ui.tab==='ltc') d = esc(t('desc_ltc'));
-  else if (ui.tab==='perfume') d = esc(t('desc_perfume', settings.minShelf.perfume));
-  else d = esc(t('desc_andet', settings.minShelf[ui.tab]));
-  $('#desc').innerHTML = d;
-}
+const dropZone = (cat, title, text) => `<button class="drop" data-act="pick" data-cat="${cat}" data-drop="${cat}">
+  <span class="ico">${ICON.up}</span><h2>${title}</h2><p>${text}</p><div class="hint">${t('emptyClick')}</div></button>`;
 
 /* =====================================================================
    Overblik
@@ -914,60 +882,58 @@ function renderTabs(){
 function renderOverview(){
   const el = $('#main');
   const loaded = loadedCats();
+  const w = currentWeek();
+  const head = phead(t('tabOverview'), `${t('week', w)}, ${t('filesLoaded', loaded.length, CAT_KEYS.length)}`,
+    `<button class="btn" data-act="pick" data-cat="any">${ICON.up} ${t('load')}</button>
+     <button class="btn" data-act="export-overview" ${loaded.length?'':'disabled'}>${ICON.sheet} ${t('xlsOverview')}</button>`);
   if (!loaded.length){
-    el.innerHTML = `<div class="drop" data-act="pick" data-cat="any" data-drop="any" tabindex="0" role="button">
-      <div class="ico">📦</div><h2>${t('emptyTitle')}</h2><p>${t('emptyText')}</p><p style="margin-top:6px;font-weight:700">${t('emptyClick')}</p>
-      <div class="cats">${CAT_KEYS.map(c=>`<span style="--cat:${CATS[c].color}"><i></i>${esc(catName(c))}</span>`).join('')}</div></div>`;
+    el.innerHTML = head + dropZone('any', t('emptyTitle'), t('emptyText'));
     return;
   }
   const S = Object.fromEntries(loaded.map(c=>[c, summary(c)]));
   const all = loaded.flatMap(c => S[c].list);
   const total = all.reduce((a,x)=>a+x.value,0);
   const ordered = all.filter(x=>x.final>0);
-  const red = all.filter(x=>x.status==='red'), amber = all.filter(x=>x.status==='amber'), manual = all.filter(x=>x.manual);
-  const okPct = all.length ? (all.length - red.length - amber.length) / all.length : 1;
-  const prev = history.filter(h=>h.week !== currentWeek()).slice(-1)[0];
-  let delta = '';
-  if (prev && prev.value > 0){ const p = (total - prev.value) / prev.value; delta = `<div class="delta ${p>=0?'up':'down'}">${t('vsWeek', (p>=0?'+':'') + fmt(p*100,0) + '%', prev.week)}</div>`; }
-  const issues = red.concat(amber);
+  const issues = all.filter(x=>x.status==='red').concat(all.filter(x=>x.status==='amber'));
+  const units = ordered.reduce((a,x)=>a+x.final,0);
+  const prev = history.filter(h=>h.week !== w).slice(-1)[0];
+  const delta = prev && prev.value > 0 ? t('vsWeek', ((total-prev.value)/prev.value>=0?'+':'') + fmt((total-prev.value)/prev.value*100,0) + '%', prev.week) : t('kpiBuySub');
+  const maxV = Math.max(1, ...loaded.map(c=>S[c].value));
   const top = ordered.slice().sort((a,b)=>b.value-a.value).slice(0,8);
-  const maxLines = Math.max(1, ...loaded.map(c=>S[c].order));
 
-  el.innerHTML = `
-    <div class="kpis">
-      <section class="card">
-        <h3>${t('kpiBuy')} ${q(t('kpiBuyQ'))}</h3><p class="sub">${t('kpiBuySub')}</p>
-        <div class="kpi-body">${donut(loaded.map(c=>({v:S[c].value, color:CATS[c].color})), 132, 16, eur(total,0), t('total'))}
-          <div class="legend-list">${loaded.map(c=>`<div class="lg" style="--cat:${CATS[c].color}"><span class="sw"></span><span class="nm">${esc(catName(c))}</span><span class="v">${eur(S[c].value,0)}</span><span class="p">${fmt(total?S[c].value/total*100:0,0)}%</span></div>`).join('')}
-          ${delta}</div></div>
-      </section>
-      <section class="card">
-        <h3>${t('kpiLines')} ${q(t('kpiLinesQ'))}</h3><p class="sub">${t('kpiLinesSub', fmt(all.length))}</p>
-        <div class="bignum">${fmt(ordered.length)}<small>${t('lines','').trim()}</small></div>
-        <div class="bars">${loaded.map(c=>`<div class="br" style="--cat:${CATS[c].color}"><span class="nm">${esc(catName(c))}</span><span class="tr"><span class="fl" style="display:block;width:${S[c].order/maxLines*100}%"></span></span><span class="v">${S[c].order}</span></div>`).join('')}</div>
-      </section>
-      <section class="card">
-        <h3>${t('kpiReady')} ${q(t('kpiReadyQ'))}</h3><p class="sub">${t('kpiReadySub')}</p>
-        <div class="kpi-body" style="flex-direction:column;align-items:stretch;gap:6px"><div style="text-align:center">${gauge(okPct)}</div>
-          <div class="stat-rows">
-            <div><span>${t('stMissing')}</span><b class="${red.length?'bad':''}">${red.length}</b></div>
-            <div><span>${t('stNeg')}</span><b class="${amber.length?'warn':''}">${amber.length}</b></div>
-            <div><span>${t('stManual')}</span><b class="${manual.length?'man':''}">${manual.length}</b></div></div></div>
-      </section>
-    </div>
-    <div class="grid2">
-      <section class="card">
-        <h3>${t('cardCheck')}</h3><p class="sub">${t('cardCheckSub')}</p>
-        ${issues.length ? issues.slice(0,12).map(x=>`<div class="issue" style="--cat:${CATS[x.cat].color}"><span class="sw" title="${esc(catName(x.cat))}"></span>
-            <div style="min-width:0"><b>${esc(x.desc)}</b><span class="m">${esc(catName(x.cat))}, ${t('col_sold').toLowerCase()} ${fmtq(x.soldDisp)}, ${t('col_real').toLowerCase()} ${fmtq(x.real)}</span></div>
-            ${x.flags.filter(f=>f.c==='red'||f.c==='amber').slice(0,1).map(f=>`<span class="tag ${f.c}">${esc(f.t)}</span>`).join('')}
+  el.innerHTML = head + `
+    <section class="panel stats">
+      <div class="stat"><span class="l">${t('kpiBuy')}</span><span class="v">${eur(total,0)}</span><span class="d">${esc(delta)}</span></div>
+      <div class="stat"><span class="l">${t('kpiLines')}</span><span class="v">${fmt(ordered.length)}</span><span class="d">${t('kpiLinesSub', fmt(all.length))}</span></div>
+      <div class="stat"><span class="l">${t('kpiUnits')}</span><span class="v">${fmt(units)}</span><span class="d">${t('kpiUnitsSub')}</span></div>
+      <div class="stat"><span class="l">${t('kpiCheck')}</span><span class="v ${issues.length?'red':''}">${fmt(issues.length)}</span><span class="d">${issues.length?t('kpiCheckSub'):t('noIssues')}</span></div>
+    </section>
+    <section class="panel" style="margin-top:16px">
+      <div class="ph"><h2>${t('cardCats')}</h2><span class="s">${t('cardCatsSub')}</span></div>
+      ${CAT_KEYS.map(c => {
+        const d = session.data[c];
+        if (!d) return `<div class="catrow off" data-act="pick" data-cat="${c}" data-drop="${c}">${catDot(c)}<div class="nm"><b>${esc(catName(c))}</b><span>${t('notLoadedLong')}</span></div><div></div><span></span><span></span><span class="iss">${t('load')}</span><span class="ch">${ICON.chev}</span></div>`;
+        const s = S[c];
+        return `<div class="catrow" data-act="tab" data-v="${c}">${catDot(c)}<div class="nm"><b>${esc(catName(c))}</b><span title="${esc(d.fileName)}">${t('items', fmt(s.lines))}</span></div>
+          <div class="bar" style="--cat:${CATS[c].color}"><i style="width:${s.value/maxV*100}%"></i></div>
+          <span class="n">${t('lines', s.order)}</span><span class="n v">${eur(s.value,0)}</span>
+          <span class="iss ${s.red?'r':''}">${s.red ? t('toCheck', s.red) : s.amber ? t('warnings', s.amber) : t('ready')}</span><span class="ch">${ICON.chev}</span></div>`;
+      }).join('')}
+    </section>
+    <div class="cols">
+      <section class="panel">
+        <div class="ph"><h2>${t('cardCheck')}</h2><span class="s">${t('cardCheckSub')}</span></div>
+        ${issues.length ? issues.slice(0,10).map(x=>`<div class="li">${catDot(x.cat)}
+            <div class="t"><b>${esc(x.desc)}</b><span>${esc(catName(x.cat))}, ${t('col_sold').toLowerCase()} ${fmtq(x.soldDisp)}, ${t('col_real').toLowerCase()} ${fmtq(x.real)}</span></div>
+            ${x.flags.filter(f=>f.c==='red'||f.c==='amber').slice(0,1).map(f=>`<span class="st ${f.c}">${esc(f.t)}</span>`).join('')}
             <button class="btn sm" data-act="goto" data-cat="${x.cat}" data-code="${esc(x.code)}">${t('fix')}</button></div>`).join('')
-          + (issues.length>12 ? `<p class="help" style="margin:10px 0 0">${t('more', issues.length-12)}</p>` : '')
+          + (issues.length>10 ? `<div class="more">${t('more', issues.length-10)}</div>` : '')
           : `<div class="allok">${ICON.ok} ${t('noIssues')}</div>`}
       </section>
-      <section class="card">
-        <h3>${t('cardTop')}</h3><p class="sub">${t('cardTopSub')}</p>
-        <ul class="top-list">${top.map(x=>`<li style="--cat:${CATS[x.cat].color}"><span class="sw"></span><span class="nm">${esc(x.desc)}</span><span class="v">${fmt(x.final)}${x.unit?' '+x.unit:''} · <b>${eur(x.value)}</b></span></li>`).join('') || `<li><span></span><span class="help">${t('nothing')}</span></li>`}</ul>
+      <section class="panel">
+        <div class="ph"><h2>${t('cardTop')}</h2><span class="s">${t('cardTopSub')}</span></div>
+        ${top.map(x=>`<div class="li" style="grid-template-columns:8px minmax(0,1fr) auto">${catDot(x.cat)}<div class="t"><b>${esc(x.desc)}</b><span>${esc(catName(x.cat))}, ${fmt(x.final)}${x.unit?' '+x.unit:' '+t('pcs')}</span></div><span class="v"><b>${eur(x.value)}</b></span></div>`).join('')
+          || `<div class="more">${t('nothing')}</div>`}
       </section>
     </div>`;
 }
@@ -975,27 +941,35 @@ function renderOverview(){
 /* =====================================================================
    Kategori-tabel
    ===================================================================== */
+function catLead(cat){
+  if (cat==='ltc') return t('desc_ltc');
+  if (cat==='perfume') return t('desc_perfume', settings.minShelf.perfume);
+  return t('desc_andet', settings.minShelf[cat]);
+}
 function renderCat(cat){
   const el = $('#main');
   const d = session.data[cat];
   if (!d){
-    el.innerHTML = `<div class="drop" data-act="pick" data-cat="${cat}" data-drop="${cat}" tabindex="0" role="button">
-      <div class="ico">📄</div><h2>${t('loadCat', esc(catName(cat)))}</h2><p>${t('loadCatText')}</p></div>`;
+    el.innerHTML = phead(catName(cat), t('notLoadedLong'), '', cat) + dropZone(cat, t('loadCat', esc(catName(cat))), t('loadCatText'));
     return;
   }
-  const all = computed(cat);
-  const counts = { all: all.length, order: all.filter(x=>x.final>0).length, check: all.filter(x=>x.status!=='ok').length, manual: all.filter(x=>x.manual).length };
+  const all = computed(cat), s = summary(cat);
+  const counts = { all: all.length, order: s.order, check: all.filter(x=>x.status!=='ok').length, manual: s.manual };
   const showSU = CATS[cat].suMode !== 'none', showStock = settings.showWinposStock;
   const th = (k,n,cls='',title='') => `<th class="${cls}" data-act="sort" data-k="${k}" ${title?`title="${esc(title)}"`:''}>${esc(n)}${ui.sort.key===k?` <span class="arr">${ui.sort.dir>0?'▲':'▼'}</span>`:''}</th>`;
   const seg = (k,n,c,isRed) => `<button class="${ui.filter===k?'on':''}" data-act="filter" data-v="${k}">${esc(n)}<span class="c ${isRed&&c?'r':''}">${c}</span></button>`;
-  el.innerHTML = `
+  const meta = `${t('catMeta', s.order, s.lines, eur(s.value))} <span class="q" title="${esc(d.fileName + (d.meta['Print date'] ? ', ' + d.meta['Print date'] : ''))}">i</span>`;
+  el.innerHTML = phead(catName(cat), meta,
+      `<button class="btn ghost" data-act="pick" data-cat="${cat}">${ICON.swap} ${t('replace')}</button>
+       <button class="btn ghost" data-act="clear" data-cat="${cat}">${t('remove')}</button>
+       <button class="btn" data-act="export-cat" data-cat="${cat}">${ICON.sheet} ${t('xlsShort')}</button>`, cat)
+    + `<p class="lead">${esc(catLead(cat))}</p>
     <div class="toolbar">
       <div class="search">${ICON.search}<input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(ui.q)}"></div>
       <div class="seg">${seg('all',t('fAll'),counts.all)}${seg('order',t('fOrder'),counts.order)}${seg('check',t('fCheck'),counts.check,true)}${seg('manual',t('fManual'),counts.manual)}</div>
       <label class="toggle"><input type="checkbox" data-act-change="calc" ${settings.showCalc?'checked':''}> ${t('showCalc')}</label>
-      <button class="btn sm" data-act="reset-ov" ${counts.manual?'':'disabled'}>${t('resetEdits')}</button>
-      <button class="btn sm" data-act="export-cat" data-cat="${cat}">${ICON.sheet} ${esc(t('exportCat', catName(cat)))}</button>
-      <button class="btn sm" data-act="print" title="${t('print')}" aria-label="${t('print')}">${ICON.print}</button>
+      ${counts.manual ? `<button class="btn ghost sm" data-act="reset-ov">${t('resetEdits')}</button>` : ''}
+      <button class="btn ghost sm" data-act="print" title="${t('print')}" aria-label="${t('print')}">${ICON.print}</button>
     </div>
     <div class="tablewrap"><table>
       <thead><tr>
@@ -1006,9 +980,10 @@ function renderCat(cat){
         ${th('final',t('col_order'),'r col-order')}${th('newStock',t('col_new'),'r',t('tip_new'))}${th('price',t('col_price'),'r')}${th('value',t('col_value'),'r')}
       </tr></thead>
       <tbody id="tbody"></tbody><tfoot id="tfoot"></tfoot></table></div>
-    <div class="legend"><span><i style="background:var(--bad)"></i>${t('lgMissing')}</span><span><i style="background:var(--warn)"></i>${t('lgNeg')}</span><span><i style="background:var(--man)"></i>${t('lgManual')}</span><span>${t('lgEnter')}</span></div>`;
+    <div class="legend"><span class="st red">${t('lgMissing')}</span><span class="st amber">${t('lgNeg')}</span><span class="st blue">${t('lgManual')}</span><span>${t('lgEnter')}</span></div>`;
   renderCatBody(cat, all);
 }
+
 function catRows(all){
   const qq = ui.q.trim().toLowerCase();
   let R = all.filter(x => {
@@ -1033,7 +1008,7 @@ function renderCatBody(cat, all){
   $('#tbody').innerHTML = R.map(x => rowHtml(x, showSU, showStock)).join('') || `<tr><td colspan="${9+extra}"><div class="empty-state">${t('noRows')}</div></td></tr>`;
   const ord = R.filter(x=>x.final>0);
   $('#tfoot').innerHTML = `<tr><td colspan="3">${t('foot', fmt(R.length), fmt(ord.length))}</td><td colspan="${2+extra}"></td>
-    <td class="r col-order">${fmt(ord.reduce((a,x)=>a+x.final,0))}</td><td></td><td></td><td class="r">${eur(ord.reduce((a,x)=>a+x.value,0))}</td></tr>`;
+    <td class="r"><b>${fmt(ord.reduce((a,x)=>a+x.final,0))}</b></td><td></td><td></td><td class="r"><b>${eur(ord.reduce((a,x)=>a+x.value,0))}</b></td></tr>`;
 }
 function rowHtml(x, showSU, showStock){
   const step = x.su || 1;
@@ -1049,7 +1024,7 @@ function rowHtml(x, showSU, showStock){
   return `<tr class="st-${x.status} ${x.final>0?'':'zero'}">
     <td class="code">${esc(x.code)}</td><td class="code">${esc(x.art)}</td>
     <td class="desc"><div class="d">${esc(x.desc)}</div>
-      ${tags.length?`<div class="tags">${tags.map(f=>`<span class="tag ${f.c}">${esc(f.t)}</span>`).join('')}</div>`:''}
+      ${tags.length?`<div class="flags">${tags.map(f=>`<span class="st ${f.c}">${esc(f.t)}</span>`).join('')}</div>`:''}
       ${settings.showCalc?`<div class="why">${esc(calcText(x))}</div>`:''}</td>
     <td class="r">${d(x.soldDisp)}${u}</td>
     ${showStock ? `<td class="r" title="${esc(x.stockRaw)}">${fmt(x.stock)}</td>` : ''}
@@ -1095,7 +1070,7 @@ function openExport(){
     <div class="field"><span class="lab">${t('expFiles')}</span>
       <div class="seg"><label><input type="radio" name="emode" value="one" ${pref.mode!=='split'?'checked':''}>${t('expOne')}</label><label><input type="radio" name="emode" value="split" ${pref.mode==='split'?'checked':''}>${t('expSplit')}</label></div></div>
     <div id="exportInfo"></div><div class="help">${t('expCols')}</div>`;
-  $('#exportFoot').innerHTML = `<button class="btn" data-act="copy-lines">${ICON.copy} ${t('copyLines')}</button><button class="btn" data-act="close">${t('cancel')}</button><button class="btn primary" data-act="do-export">${ICON.dl} ${t('download')}</button>`;
+  $('#exportFoot').innerHTML = `<button class="btn" data-act="close">${t('cancel')}</button><button class="btn primary" data-act="do-export">${ICON.dl} ${t('download')}</button>`;
   const upd = () => {
     const cats = [...document.querySelectorAll('[name=ecat]:checked')].map(i=>i.value);
     const lines = exportLines(cats), red = cats.reduce((a,c)=>a+summary(c).red,0), noArt = lines.filter(l=>!l.art).length;
@@ -1125,12 +1100,6 @@ function doExport(){
   $('#mExport').classList.remove('show');
   toast(n ? t('tExported', n) : t('tNothing'));
 }
-async function copyLines(){
-  const cats = [...document.querySelectorAll('[name=ecat]:checked')].map(i=>i.value);
-  const txt = ['GH article no.\tCustomer article no.\tOrder quantity'].concat(exportLines(cats).map(l=>`${l.code}\t${l.art}\t${l.qty}`)).join('\n');
-  try{ await navigator.clipboard.writeText(txt); toast(t('tCopied')); } catch(e){ toast('Clipboard ✕'); }
-}
-/** Overblik i Excel: linje for linje som Winpos-filen, med de beregnede tal */
 function exportOverview(cats){
   if (!needXLSX()) return;
   cats = cats || loadedCats();
@@ -1154,15 +1123,6 @@ function exportOverview(cats){
   XLSX.writeFile(wb, `${cats.length===1 ? catName(cats[0]) : t('tabOverview')} ${t('week', w)}.xlsx`);
   toast(t('tOverview'));
 }
-async function copySummary(){
-  const loaded = loadedCats(); let to = 0, tv = 0, tr = 0;
-  const lines = [t('sumTitle', currentWeek()), ''];
-  for (const c of loaded){ const s = summary(c); to += s.order; tv += s.value; tr += s.red; lines.push(t('sumLine', catName(c), s.order, eur(s.value))); }
-  lines.push('', t('sumTotal', to, eur(tv)));
-  if (tr) lines.push(t('sumCheck', tr));
-  try{ await navigator.clipboard.writeText(lines.join('\n')); toast(t('tSummary')); } catch(e){ toast('Clipboard ✕'); }
-}
-
 /* =====================================================================
    Varemodtagelse — CDL fra Heinemann → CSV til Winpos
    ===================================================================== */
@@ -1254,31 +1214,35 @@ function rxVisible(){
 function renderReceive(){
   const el = $('#main');
   if (!rx){
-    el.innerHTML = `<div class="drop" data-act="pick" data-cat="cdl" data-drop="cdl" tabindex="0" role="button">
-      <div class="ico">🚚</div><h2>${t('rxEmptyTitle')}</h2><p>${t('rxEmptyText')}</p><p style="margin-top:6px;font-weight:700">${t('emptyClick')}</p></div>`;
+    el.innerHTML = phead(t('tabReceive'), esc(t('desc_receive')), '') + dropZone('cdl', t('rxEmptyTitle'), t('rxEmptyText'));
     return;
   }
   const invs = rxInvoices(), allNet = invs.reduce((a,i)=>a+i.net,0);
+  const excl = rx.rows.filter(r=>!r.on).length;
+  const totOk = !rx.total || Math.abs(rx.total.net-allNet) < 0.05;
   const cnt = rx.rows.filter(r=>rui.inv==='all'||r.inv===rui.inv);
   const seg = (k,n,c) => `<button class="${rui.filter===k?'on':''}" data-act="rx-filter" data-v="${k}">${esc(n)}<span class="c">${c}</span></button>`;
   const th = c => `<th class="${c.num?'r':''}" data-act="rx-sort" data-k="${c.k}">${esc(t('rc_'+c.k))}${rui.sort.key===c.k?` <span class="arr">${rui.sort.dir>0?'▲':'▼'}</span>`:''}</th>`;
   const anyF = Object.values(rui.colf).some(x=>x && x.trim());
-  const totOk = !rx.total || Math.abs(rx.total.net-allNet) < 0.05;
-  el.innerHTML = `
-    <div class="inv-cards">
-      <button class="inv ${rui.inv==='all'?'on':''}" data-act="rx-inv" data-v="all"><div class="no">${t('allInv')}</div><div class="amt">${eur(allNet)}</div>
-        <div class="st ${totOk?'ok':'bad'}">${rx.total ? (totOk ? '✓ '+t('totalOk') : '● '+t('totalDiff')) : ''}</div><div class="m">${t('lines', fmt(rx.rows.length))}${rx.rows.some(r=>!r.on)?', '+t('rxExcludedN', rx.rows.filter(r=>!r.on).length):''}</div></button>
-      ${invs.map(i=>`<button class="inv ${rui.inv===i.no?'on':''}" data-act="rx-inv" data-v="${esc(i.no)}" title="${esc([...i.refs].join(' / '))}">
-        <div class="no">${esc(i.no)}</div><div class="amt">${eur(i.net)}</div>
-        <div class="st ${i.check==='diff'?'bad':'ok'}">${i.check==='ok'?'✓ '+t('sumOk'):i.check==='diff'?'● '+t('sumDiff'):t('noSum')}</div>
-        <div class="m">${t('lines', i.lines)}${i.lines!==i.on?', '+t('rxExcludedN', i.lines-i.on):''}</div></button>`).join('')}
-    </div>
+  const stTxt = i => i.check==='ok' ? `<span class="st teal">${t('sumOk')}</span>` : i.check==='diff' ? `<span class="st red">${t('sumDiff')}</span>` : `<span class="st grey">${t('noSum')}</span>`;
+  el.innerHTML = phead(t('tabReceive'), `${esc(rx.fileName.replace(/^[0-9a-f]{8}-/,''))}`,
+      `<button class="btn ghost" data-act="pick" data-cat="cdl">${ICON.swap} ${t('replace')}</button>
+       <button class="btn ghost" data-act="rx-clear">${t('remove')}</button>`)
+    + `<p class="lead">${esc(t('desc_receive'))}</p>
+    <section class="panel" style="margin-bottom:16px">
+      <div class="ph"><h2>${t('rxInvoices')}</h2><span class="s">${t('lines', fmt(rx.rows.length))}${excl?', '+t('rxExcludedN', excl):''}</span></div>
+      <div class="invrow ${rui.inv==='all'?'on':''}" data-act="rx-inv" data-v="all"><div class="no">${t('allInv')}</div><span class="n">${t('lines', rx.rows.length)}</span>
+        ${rx.total ? (totOk ? `<span class="st teal">${t('totalOk')}</span>` : `<span class="st red">${t('totalDiff')}</span>`) : '<span></span>'}<span class="v">${eur(allNet)}</span><span class="ch">${ICON.chev}</span></div>
+      ${invs.map(i=>`<div class="invrow ${rui.inv===i.no?'on':''}" data-act="rx-inv" data-v="${esc(i.no)}">
+        <div class="no">${esc(i.no)}<span title="${esc([...i.refs].join(' / '))}">${esc([...i.refs].join(' / '))}</span></div>
+        <span class="n">${t('lines', i.lines)}${i.lines!==i.on?`, ${i.lines-i.on} ${t('fOff').toLowerCase()}`:''}</span>${stTxt(i)}<span class="v">${eur(i.net)}</span><span class="ch">${ICON.chev}</span></div>`).join('')}
+    </section>
     <div class="toolbar">
       <div class="search">${ICON.search}<input id="rxQ" type="search" placeholder="${esc(t('rxSearch'))}" value="${esc(rui.q)}"></div>
       <div class="seg">${seg('all',t('fAll'),cnt.length)}${seg('on',t('fOn'),cnt.filter(r=>r.on).length)}${seg('off',t('fOff'),cnt.filter(r=>!r.on).length)}${seg('zero',t('fZero'),cnt.filter(r=>r.price===0).length)}${seg('tester',t('fTester'),cnt.filter(r=>r.tester).length)}</div>
-      <button class="btn sm" data-act="rx-all" data-v="1">${t('incShown')}</button>
-      <button class="btn sm" data-act="rx-all" data-v="0">${t('excShown')}</button>
-      <button class="btn sm" data-act="rx-clearf" id="rxClearF" ${anyF?'':'disabled'}>${t('clearF')}</button>
+      <button class="btn ghost sm" data-act="rx-all" data-v="1">${t('incShown')}</button>
+      <button class="btn ghost sm" data-act="rx-all" data-v="0">${t('excShown')}</button>
+      ${anyF ? `<button class="btn ghost sm" data-act="rx-clearf" id="rxClearF">${t('clearF')}</button>` : ''}
       ${q(t('rxQ'))}
     </div>
     <div class="tablewrap"><table class="rx-table">
@@ -1292,7 +1256,7 @@ function rxRenderBody(){
   $('#rxBody').innerHTML = R.map(r => `<tr class="${r.on?'':'off'}">
       <td class="chk"><input type="checkbox" data-rxon="${r.id}" ${r.on?'checked':''} aria-label="${t('rc_on')}"></td>
       <td class="code">${esc(r.inv)}</td><td class="code">${esc(r.art)}</td>
-      <td class="desc"><div class="d">${esc(r.desc)}</div>${(r.tester||r.posm||r.price===0)?`<div class="tags">${r.tester?'<span class="tag amber">Tester</span>':''}${r.posm?'<span class="tag grey">POSM</span>':''}${r.price===0?`<span class="tag red">${t('fZero')}</span>`:''}</div>`:''}</td>
+      <td class="desc"><div class="d">${esc(r.desc)}</div>${(r.tester||r.posm||r.price===0)?`<div class="flags">${r.tester?'<span class="st amber">Tester</span>':''}${r.posm?'<span class="st grey">POSM</span>':''}${r.price===0?`<span class="st red">${t('fZero')}</span>`:''}</div>`:''}</td>
       <td class="r">${fmt(r.qty)}</td><td class="r">${fmt(r.price,2)}</td><td class="r">${fmt(r.net,2)}</td>
       <td style="white-space:nowrap;font-size:13px;color:var(--ink-2)">${esc(r.ref)}</td><td style="font-size:13px">${esc(r.brand)}</td><td class="code">${esc(r.mgrp)}</td></tr>`).join('')
     || `<tr><td colspan="${RX_SHOW.length+1}"><div class="empty-state">${t('noRows')}</div></td></tr>`;
@@ -1404,7 +1368,7 @@ function openHelp(){
    ===================================================================== */
 function render(){
   if (!(ui.tab in CATS) && ui.tab!=='overview' && ui.tab!=='receive') ui.tab = 'overview';
-  applyTheme(); renderTop(); renderFilebar(); renderTabs();
+  applyTheme(); renderTop();
   if (ui.tab==='overview') renderOverview(); else if (ui.tab==='receive') renderReceive(); else renderCat(ui.tab);
 }
 function pickFile(cat){ const i = $('#file_'+cat); if (i){ i.value=''; i.click(); } }
@@ -1438,10 +1402,8 @@ document.addEventListener('click', e => {
     case 'print': window.print(); break;
     case 'export-order': openExport(); break;
     case 'do-export': doExport(); break;
-    case 'copy-lines': copyLines(); break;
     case 'export-overview': exportOverview(); break;
     case 'export-cat': exportOverview([el.dataset.cat]); break;
-    case 'copy-summary': copySummary(); break;
     case 'settings': openSettings(); break;
     case 'save-settings': saveSettings(); break;
     case 'reset-settings': if (confirm(t('cReset'))){ const lang=settings.lang, theme=settings.theme; settings = structuredClone(DEFAULT_SETTINGS); settings.lang=lang; settings.theme=theme; saveSettingsStore(); openSettings(); render(); } break;
