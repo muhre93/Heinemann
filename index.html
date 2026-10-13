@@ -50,22 +50,31 @@ button,input,select{font:inherit;color:inherit}
 .hdr-row{display:flex;align-items:center;gap:22px;min-height:56px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;white-space:nowrap;color:var(--ink)}
 .brand .mk{width:22px;height:22px;border-radius:50%;border:5px solid var(--accent);flex-shrink:0}
-.nav{display:flex;gap:2px;align-self:stretch;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+.nav{display:flex;gap:2px;align-self:stretch;min-width:0;overflow-x:auto;scrollbar-width:none}
+.nav button:first-child{padding-left:0}
 .nav::-webkit-scrollbar{display:none}
 .nav button{border:none;background:none;padding:0 12px;color:var(--ink-2);font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s}
 .nav button:hover{color:var(--ink)}
 .nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
 .nav .cnt{font-size:11px;font-weight:600;color:var(--red);background:var(--red-soft);border-radius:9px;padding:0 6px;line-height:18px}
-.tools{display:flex;align-items:center;gap:6px}
+.tools{display:flex;align-items:center;gap:6px;margin-left:auto}
+.mnav{display:inline-flex;gap:2px;background:var(--hover);padding:3px;border-radius:9px}
+.mnav button{border:none;background:none;padding:6px 14px;border-radius:7px;font-weight:500;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.mnav button:hover{color:var(--ink)}
+.mnav button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.mnav .cnt,.nav .cnt{font-size:11px;font-weight:600;color:var(--red);background:var(--red-soft);border-radius:9px;padding:0 6px;line-height:18px}
+.sub-row{display:flex;min-height:42px}
+.sub-row .nav{flex:1}
+.nav button.add{color:var(--accent)}
 .lang{display:inline-flex;gap:0;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
 .lang button{border:none;background:none;padding:4px 9px;font-size:12px;font-weight:600;color:var(--ink-3);cursor:pointer}
 .lang button.on{background:var(--ink);color:var(--surface)}
 .ib{border:none;background:none;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2);cursor:pointer}
 .ib:hover{background:var(--hover);color:var(--ink)}
-@media (max-width:1180px){
-  .hdr-row{gap:12px;padding-top:8px}
-  .nav{order:3;flex-basis:100%;min-height:42px}
-  .nav button{padding:0 10px}
+@media (max-width:760px){
+  .hdr-row{gap:10px;padding:8px 0}
+  .mnav{order:3;flex-basis:100%}
+  .mnav button{flex:1;justify-content:center}
 }
 
 /* ---------- Knapper ---------- */
@@ -269,7 +278,7 @@ tfoot td b{color:var(--ink);font-weight:600}
 </style>
 </head>
 <body>
-<header class="hdr"><div class="wrap hdr-row" id="top"></div></header>
+<header class="hdr"><div class="wrap hdr-row" id="top"></div><div class="wrap sub-row" id="subnav"></div></header>
 <div class="wrap"><main id="main" style="padding-bottom:80px"></main></div>
 
 <input type="file" id="file_any" accept=".xls,.xlsx,.xlsm" multiple hidden>
@@ -337,13 +346,14 @@ let settings = loadSettings();
 let suMemory = store.get(K_SU, {});
 let session  = store.get(K_SES, null) || { data:{}, overrides:{} };
 for (const c of CAT_KEYS) session.overrides[c] = session.overrides[c] || {};
+session.sup = session.sup || {}; session.supOv = session.supOv || {};
 let rx = store.get(K_RX, null);
 let rxPref = Object.assign({ autoZero:true, sep:';', dec:',', header:true, headers:['Article','Qty','Price/Qty'], mode:'split' }, store.get(K_RXP, {}));
 let history = store.get(K_HIST, []);
 const uiSaved = store.get(K_UI, {});
-const ui  = { tab: uiSaved.tab || 'overview', filter:'all', q:'', sort:{key:null,dir:1} };
+const ui  = { section: uiSaved.section || 'heinemann', sup: uiSaved.sup || 'overview', tab: uiSaved.tab || 'overview', filter:'all', q:'', sort:{key:null,dir:1} };
 const rui = { inv:'all', filter:'all', q:'', colf:{}, sort:{key:null,dir:1} };
-function saveUi(){ store.set(K_UI, { tab:ui.tab }); }
+function saveUi(){ store.set(K_UI, { tab:ui.tab, section:ui.section, sup:ui.sup }); }
 function saveSettingsStore(){ store.set(K_SET, settings); }
 
 /* =====================================================================
@@ -351,6 +361,15 @@ function saveSettingsStore(){ store.set(K_SET, settings); }
    ===================================================================== */
 const I18N = {
   da: {
+    errFormat:'Filen ligner hverken en Winpos-eksport eller en CDL-fil.', tMany:(h,s)=>`${h} Heinemann-filer og ${s} ${s===1?'anden leverandør':'andre leverandører'} indlæst`, searchSup:'Søg på beskrivelse, varenr. eller Artikel Nr',
+    secOthers:'Andre leverandører', othersLead:'Indlæs Winpos-eksporter fra andre leverandører, fx Damfar.', supCount: n=>`${n} ${n===1?'leverandør':'leverandører'} indlæst`,
+    xlsAll:'Bestillingslister (alle)', orderList:'Bestillingsliste', addSupplier:'Indlæs leverandør', orderFile:'Bestilling',
+    supEmptyTitle:'Indlæs filer fra andre leverandører', supEmptyText:'Træk Winpos-eksporterne ind. Appen læser leverandør og havn fra filen og laver en fane til hver.',
+    kpiPacks:'Kolli', kpiPacksSub:'samlet antal kolli der bestilles', suppliers:'Leverandører',
+    lead_sup:'Kolli-størrelsen tages fra kolonnen Unit (fx 16xStk). Lager nu = Winpos-lager − solgt × kolli. Bestil = solgt + 1 kolli − lager nu, i hele kolli.',
+    col_code_sup:'Varenr.', tip_real_sup:'Winpos-lager minus solgt × kolli', tip_su_sup:'Antal stk pr. kolli fra kolonnen Unit. Kan rettes og huskes.',
+    col_packs:'Bestil (kolli)', col_pcs:'Stk', col_pprice:'Pris pr. kolli',
+    calc_need_sup:(s,b,r,n,f,sug)=>`Solgt ${s}${b?' + 1 kolli':''} − lager ${r} = ${n} stk → ${sug} kolli á ${f}`,
     filesLoaded:(n,m)=>`${n} af ${m} filer indlæst`, kpiUnits:'Enheder', kpiUnitsSub:'samlet antal der bestilles', kpiCheck:'Skal tjekkes', kpiCheckSub:'se listen nedenfor',
     cardCats:'Kategorier', cardCatsSub:'Klik for at åbne', notLoadedLong:'Ikke indlæst endnu', toCheck: n=>`${n} skal tjekkes`, warnings: n=>`${n} advarsler`, ready:'Klar', pcs:'stk',
     catMeta:(o,l,v)=>`${o} af ${l} varer bestilles, ${v}`, xlsShort:'Excel',
@@ -442,6 +461,7 @@ const I18N = {
       'Nyt lager = lager nu + bestil.',
       'Perfume, Andet og Cosmetic & Hygiejne har altid mindst 4 på hylden.',
       'Cola, Fanta og Redbull: Winpos har lagt solgt × 24 til lageret. Appen trækker det fra og regner i kolli á 24.'],
+    hSup:'Andre leverandører', hS:['Vælg Andre leverandører øverst og indlæs Winpos-eksporten (fx Damfar). Leverandør og havn læses fra filen.','Kolli-størrelsen tages fra kolonnen Unit. Mangler den, så skriv den – den huskes.','Tryk Bestillingsliste for at få en Excel-fil til leverandøren.'],
     hRx:'Varemodtagelse', hR:[
       'Åbn fanen Varemodtagelse og indlæs CDL-filen.',
       'Hver faktura får sit eget kort. "Sum passer" betyder, at linjerne stemmer med den gule sumlinje.',
@@ -450,6 +470,15 @@ const I18N = {
     hPriv:'Alt gemmes kun i din egen browser. Brug "Gem backup" under Indstillinger, hvis du skifter computer.',
   },
   en: {
+    errFormat:'The file is neither a Winpos export nor a CDL file.', tMany:(h,s)=>`${h} Heinemann files and ${s} other ${s===1?'supplier':'suppliers'} loaded`, searchSup:'Search description, item no. or article no.',
+    secOthers:'Other suppliers', othersLead:'Load Winpos exports from other suppliers, e.g. Damfar.', supCount: n=>`${n} ${n===1?'supplier':'suppliers'} loaded`,
+    xlsAll:'Order lists (all)', orderList:'Order list', addSupplier:'Load supplier', orderFile:'Order',
+    supEmptyTitle:'Load files from other suppliers', supEmptyText:'Drop the Winpos exports here. The app reads supplier and port from the file and gives each its own tab.',
+    kpiPacks:'Packs', kpiPacksSub:'total packs to order', suppliers:'Suppliers',
+    lead_sup:'Pack size comes from the Unit column (e.g. 16xStk). Stock now = Winpos stock − sold × pack. Order = sold + 1 pack − stock now, in whole packs.',
+    col_code_sup:'Item no.', tip_real_sup:'Winpos stock minus sold × pack size', tip_su_sup:'Units per pack from the Unit column. Can be edited and is remembered.',
+    col_packs:'Order (packs)', col_pcs:'Units', col_pprice:'Price per pack',
+    calc_need_sup:(s,b,r,n,f,sug)=>`Sold ${s}${b?' + 1 pack':''} − stock ${r} = ${n} units → ${sug} packs of ${f}`,
     filesLoaded:(n,m)=>`${n} of ${m} files loaded`, kpiUnits:'Units', kpiUnitsSub:'total quantity ordered', kpiCheck:'To check', kpiCheckSub:'see the list below',
     cardCats:'Categories', cardCatsSub:'Click to open', notLoadedLong:'Not loaded yet', toCheck: n=>`${n} to check`, warnings: n=>`${n} warnings`, ready:'Ready', pcs:'pcs',
     catMeta:(o,l,v)=>`${o} of ${l} items to order, ${v}`, xlsShort:'Excel',
@@ -535,6 +564,7 @@ const I18N = {
       'New stock = stock now + order.',
       'Perfume, Other and Cosmetics & Hygiene always keep at least 4 on the shelf.',
       'Cola, Fanta and Redbull: Winpos adds sold × 24 to stock. The app subtracts it and counts in packs of 24.'],
+    hSup:'Other suppliers', hS:['Choose Other suppliers at the top and load the Winpos export (e.g. Damfar). Supplier and port are read from the file.','Pack size comes from the Unit column. If it is missing, type it – it is remembered.','Click Order list to get an Excel file for the supplier.'],
     hRx:'Goods receipt', hR:[
       'Open Goods receipt and load the CDL file.',
       'Each invoice gets its own card. "Total matches" means the lines add up to the yellow total line.',
@@ -743,6 +773,7 @@ function parseWinpos(aoa){
       unit: C.unit>=0 ? String(r[C.unit]??'').trim() : '',
     });
   }
+  meta.__cur = /eur/.test(head[C.price]||'') ? '€' : 'kr.';
   return { meta, rows };
 }
 
@@ -822,21 +853,73 @@ function currentWeek(){ for (const c of CAT_KEYS){ const w = session.data[c]?.we
 function saveSession(){ store.set(K_SES, session); }
 const loadedCats = () => CAT_KEYS.filter(c=>session.data[c]);
 
+/* ---------- Indlæsning: Heinemann-kategori eller anden leverandør ---------- */
+const isHeinemann = meta => /heinem/i.test(meta?.Supplier || '');
+async function parseFile(file){
+  const sheets = await readSheets(file);
+  try { const p = parseWinpos(sheets[0].aoa); if (p.rows.length) return { kind:'winpos', ...p, sheets }; } catch(e){}
+  try { const c = parseCDL(sheets); return { kind:'cdl', cdl:c, sheets }; } catch(e){}
+  throw new Error(t('errFormat'));
+}
+function storeHeinemann(cat, file, p, quiet){
+  session.data[cat] = { fileName:file.name, meta:p.meta, rows:p.rows, week: detectWeek(file.name), loadedAt: Date.now() };
+  session.overrides[cat] = {};
+  saveSession();
+  if (!quiet){ Object.assign(ui, { section:'heinemann', tab:cat, filter:'all', q:'', sort:{key:null,dir:1} }); saveUi(); }
+  render();
+  const s = summary(cat);
+  toast(t('tLoaded', catName(cat), s.order, s.lines, s.red));
+}
+function supKeyOf(meta, fileName){
+  const m = /^(\d+)\s+(.+)$/.exec(meta?.Supplier || '');
+  if (m) return { key:m[1], name:m[2].trim() };
+  const n = String(fileName).replace(/\.[^.]+$/,'').replace(/^[0-9a-f]{8}-/,'').replace(/[_-]?(week|uge)[_\s-]*\d+/i,'').trim();
+  return { key:n.toLowerCase(), name:n };
+}
+function storeSupplier(file, p, quiet){
+  const { key, name } = supKeyOf(p.meta, file.name);
+  session.sup[key] = { key, name, port: p.meta.Port || '', fileName:file.name, meta:p.meta, rows:p.rows, cur: p.meta.__cur || 'kr.', week: detectWeek(file.name), loadedAt: Date.now() };
+  session.supOv[key] = {};
+  saveSession();
+  if (!quiet){ Object.assign(ui, { section:'others', sup:key, filter:'all', q:'', sort:{key:null,dir:1} }); saveUi(); }
+  render();
+  const s = supSummary(key);
+  toast(t('tLoaded', name, s.order, s.lines, s.red));
+}
+/** Én fil hvor brugeren selv har valgt Heinemann-kategori */
 async function loadOrderFile(cat, file, quiet){
   try{
-    const sheets = await readSheets(file);
-    const { meta, rows } = parseWinpos(sheets[0].aoa);
-    if (!rows.length) throw new Error('0 rows');
+    const p = await parseFile(file);
+    if (p.kind === 'cdl'){ return rxLoad(file); }
+    if (p.meta.Supplier && !isHeinemann(p.meta)) return storeSupplier(file, p, quiet);
     const g = guessCat(file.name);
     if (g && g !== cat && CATS[g] && !confirm(t('cMismatch', file.name, catName(g), catName(cat)))) return;
-    session.data[cat] = { fileName:file.name, meta, rows, week: detectWeek(file.name), loadedAt: Date.now() };
-    session.overrides[cat] = {};
-    saveSession();
-    if (!quiet){ Object.assign(ui, { tab:cat, filter:'all', q:'', sort:{key:null,dir:1} }); saveUi(); }
-    render();
-    const s = summary(cat);
-    toast(t('tLoaded', catName(cat), s.order, s.lines, s.red));
-  }catch(e){ console.error(e); alert(t('errRead') + '\n' + e.message); }
+    storeHeinemann(cat, file, p, quiet);
+  }catch(e){ console.error(e); alert(t('errRead') + '\n' + file.name + '\n' + e.message); }
+}
+/** En eller flere filer — appen finder selv ud af hvad de er */
+async function loadAny(files, hint){
+  const unknown = [];
+  let heinCount = 0, supCount = 0, many = files.length > 1;
+  for (const f of files){
+    try{
+      const p = await parseFile(f);
+      if (p.kind === 'cdl'){ await rxLoad(f); continue; }
+      if (p.meta.Supplier && !isHeinemann(p.meta)){ storeSupplier(f, p, many); supCount++; continue; }
+      let c = guessCat(f.name);
+      if (c === 'cdl') c = null;
+      if (!c && CATS[hint]) c = hint;
+      if (!c && !many && ui.section==='heinemann' && CATS[ui.tab]) c = ui.tab;
+      if (c){ storeHeinemann(c, f, p, many); heinCount++; } else unknown.push(f.name);
+    }catch(e){ console.error(e); unknown.push(f.name); }
+  }
+  if (many){
+    if (heinCount && !supCount){ ui.section='heinemann'; ui.tab='overview'; }
+    else if (supCount && !heinCount){ ui.section='others'; ui.sup='overview'; }
+    saveUi(); render();
+    toast(t('tMany', heinCount, supCount));
+  }
+  if (unknown.length) setTimeout(()=>toast(t('tUnknown', unknown.join(', '))), many ? 1600 : 0);
 }
 
 /* =====================================================================
@@ -846,28 +929,40 @@ const catDot = c => `<span class="dt" style="--cat:${CATS[c].color}"></span>`;
 function issuesIn(c){ return session.data[c] ? summary(c).red : 0; }
 
 function renderTop(){
-  const rxTab = ui.tab === 'receive';
+  const others = ui.section === 'others';
   const loaded = loadedCats();
-  const tabs = [['overview', t('tabOverview')]].concat(CAT_KEYS.map(c=>[c, catName(c)])).concat([['receive', t('tabReceive')]]);
-  const cnt = k => {
-    let n = 0;
-    if (k==='overview') n = loaded.reduce((a,c)=>a+issuesIn(c),0);
-    else if (CATS[k]) n = issuesIn(k);
-    else if (k==='receive' && rx) n = rxInvoices().filter(i=>i.check==='diff').length;
-    return n ? `<span class="cnt">${n}</span>` : '';
-  };
+  const heinIssues = loaded.reduce((a,c)=>a+issuesIn(c),0) + (rx ? rxInvoices().filter(i=>i.check==='diff').length : 0);
+  const supIssues = supKeys().reduce((a,k)=>a+supSummary(k).red,0);
+  const cntB = n => n ? `<span class="cnt">${n}</span>` : '';
+  let primary;
+  if (others) primary = ui.sup==='overview'
+      ? `<button class="btn primary" data-act="sup-export-all" ${supKeys().length?'':'disabled'}>${ICON.dl}<span class="lbl">${t('xlsAll')}</span></button>`
+      : `<button class="btn primary" data-act="sup-export" data-sup="${esc(ui.sup)}">${ICON.dl}<span class="lbl">${t('orderList')}</span></button>`;
+  else primary = ui.tab==='receive'
+      ? `<button class="btn primary" data-act="rx-export" ${rx?'':'disabled'}>${ICON.dl}<span class="lbl">${t('csv')}</span></button>`
+      : `<button class="btn primary" data-act="export-order" ${loaded.length?'':'disabled'}>${ICON.dl}<span class="lbl">${t('order')}</span></button>`;
   $('#top').innerHTML = `
     <div class="brand"><span class="mk"></span>${esc(t('title'))}</div>
-    <nav class="nav" aria-label="${esc(t('title'))}">${tabs.map(([k,n])=>`<button class="${ui.tab===k?'on':''}" data-act="tab" data-v="${k}">${esc(n)}${cnt(k)}</button>`).join('')}</nav>
+    <nav class="mnav" aria-label="${esc(t('title'))}">
+      <button class="${!others?'on':''}" data-act="section" data-v="heinemann">Heinemann${cntB(heinIssues)}</button>
+      <button class="${others?'on':''}" data-act="section" data-v="others">${t('secOthers')}${cntB(supIssues)}</button>
+    </nav>
     <div class="tools">
       <div class="lang" role="group" aria-label="Sprog / Language"><button class="${settings.lang==='da'?'on':''}" data-act="lang" data-v="da">DA</button><button class="${settings.lang==='en'?'on':''}" data-act="lang" data-v="en">EN</button></div>
       <button class="ib" data-act="theme" title="${t('theme')}" aria-label="${t('theme')}">${settings.theme==='dark'?ICON.sun:ICON.moon}</button>
       <button class="ib" data-act="settings" title="${t('settings')}" aria-label="${t('settings')}">${ICON.gear}</button>
       <button class="ib" data-act="help" title="${t('help')}" aria-label="${t('help')}">${ICON.help}</button>
-      ${rxTab
-        ? `<button class="btn primary" data-act="rx-export" ${rx?'':'disabled'}>${ICON.dl}<span class="lbl">${t('csv')}</span></button>`
-        : `<button class="btn primary" data-act="export-order" ${loaded.length?'':'disabled'}>${ICON.dl}<span class="lbl">${t('order')}</span></button>`}
+      ${primary}
     </div>`;
+  let tabs;
+  if (others){
+    tabs = [['overview', t('tabOverview'), 0]].concat(supKeys().map(k=>[k, session.sup[k].name, supSummary(k).red]));
+    $('#subnav').innerHTML = `<nav class="nav">${tabs.map(([k,n,c])=>`<button class="${ui.sup===k?'on':''}" data-act="sup" data-v="${esc(k)}">${esc(n)}${cntB(c)}</button>`).join('')}
+      <button data-act="pick" data-cat="any" class="add">+ ${t('addSupplier')}</button></nav>`;
+  } else {
+    tabs = [['overview', t('tabOverview'), loaded.reduce((a,c)=>a+issuesIn(c),0)]].concat(CAT_KEYS.map(c=>[c, catName(c), issuesIn(c)])).concat([['receive', t('tabReceive'), rx ? rxInvoices().filter(i=>i.check==='diff').length : 0]]);
+    $('#subnav').innerHTML = `<nav class="nav">${tabs.map(([k,n,c])=>`<button class="${ui.tab===k?'on':''}" data-act="tab" data-v="${k}">${esc(n)}${cntB(c)}</button>`).join('')}</nav>`;
+  }
   const h = $('.hdr'); if (h) document.documentElement.style.setProperty('--hdr-h', h.offsetHeight + 'px');
 }
 function phead(title, meta, acts, cat){
@@ -995,8 +1090,8 @@ function catRows(all){
   });
   const { key, dir } = ui.sort;
   if (key){
-    const get = { code:x=>+x.code||x.code, art:x=>+x.art||x.art, desc:x=>x.desc.toLowerCase(), sold:x=>x.soldDisp, stock:x=>x.stock,
-      real:x=>x.real, su:x=>x.su, price:x=>x.price, final:x=>x.final, newStock:x=>x.newStock, value:x=>x.value }[key];
+    const get = { pcs:x=>x.pcs, code:x=>+x.code||x.code, art:x=>+x.art||x.art, desc:x=>x.desc.toLowerCase(), sold:x=>x.soldDisp ?? x.sold, stock:x=>x.stock,
+      real:x=>x.real, su:x=>x.su ?? x.pack, price:x=>x.price, final:x=>x.final, newStock:x=>x.newStock, value:x=>x.value }[key];
     R = R.slice().sort((a,b)=>{ const A=get(a),B=get(b); return (A>B?1:A<B?-1:0)*dir; });
   } else { const rank = { red:0, amber:1, ok:2 }; R = R.slice().sort((a,b)=> rank[a.status]-rank[b.status]); }
   return R;
@@ -1056,7 +1151,7 @@ function refresh(focusSel){
 /* =====================================================================
    Eksport
    ===================================================================== */
-const asCell = v => (/^\d+$/.test(String(v)) && String(v).length < 16 ? Number(v) : String(v ?? ''));
+const asCell = v => (/^[1-9]\d{0,14}$/.test(String(v)) ? Number(v) : String(v ?? ''));   // behold foranstillede nuller (fx 086016)
 function needXLSX(){ if (typeof XLSX==='undefined'){ toast(t('noXlsx')); return false; } return true; }
 function exportLines(cats){ const out=[]; for (const c of cats) for (const x of computed(c)) if (x.final>0) out.push({ cat:c, code:x.code, art:x.art, qty:x.final }); return out; }
 function openExport(){
@@ -1320,6 +1415,181 @@ function doCsv(){
 }
 
 /* =====================================================================
+   ANDRE LEVERANDØRER
+   Kolli-størrelsen står i kolonne F "Unit" (fx 16xStk, 48Stk, 5x15g).
+   Winpos lægger "solgt × kolli" til lageret i New stock — samme fejl som
+   Cola hos Heinemann — så lager nu = New stock − solgt × kolli.
+   Indkøbsprisen er pr. kolli, og der bestilles i hele kolli.
+   ===================================================================== */
+const supKeys = () => Object.keys(session.sup).sort((a,b)=>session.sup[a].name.localeCompare(session.sup[b].name));
+const money = (v, cur, d=2) => cur === '€' ? eur(v,d) : `${fmt(v,d)} ${cur}`;
+function packFromUnit(u){
+  const s = String(u||'').trim();
+  const m = /^(\d+)\s*x/i.exec(s) || /^(\d+)\s*(stk|pcs|pc)\.?$/i.exec(s);
+  return m ? +m[1] : null;
+}
+function stockUnitSize(row){
+  const suf = String(row.stockRaw||'').replace(/^-?[\d.,]+\s*/,'');
+  const m = /^(\d+)\s*x/i.exec(suf);
+  return m ? +m[1] : 1;
+}
+function calcSup(key, row){
+  const flags = [], cover = +settings.cover || 1;
+  const memKey = 's:' + key + ':' + row.code;
+  let pack = suMemory[memKey], src = 'memory';
+  if (!pack){ pack = packFromUnit(row.unit); src = pack ? 'file' : 'missing'; }
+  if (!pack){ pack = 1; flags.push({ c:'red', t:t('fl_missing') }); }
+  const f = Math.max(1, pack / stockUnitSize(row));       // lagerenheder pr. kolli
+  const real = row.stock - row.sold * f;                   // ret Winpos-fejlen
+  const buf = settings.buffer && src !== 'missing' ? f : 0;
+  const target = row.sold * cover + buf, need = target - real;
+  let sug = need > 0 ? roundTo(need / f, 1, settings.rounding) : 0;
+  if (sug === 0 && real <= 0 && row.sold > 0) sug = 1;
+  if (real < 0) flags.push({ c:'amber', t:t('fl_neg') });
+  const ov = session.supOv[key]?.[row.code];
+  const manual = ov != null && ov !== '' && !isNaN(ov);
+  const final = manual ? Math.max(0, +ov) : sug;
+  if (manual) flags.push({ c:'blue', t:t('fl_manual', sug) });
+  const status = flags.some(x=>x.c==='red') ? 'red' : flags.some(x=>x.c==='amber') ? 'amber' : 'ok';
+  const cx = need > 0 ? { k:'need', s:row.sold*cover, b:buf?1:0, r:real, n:need, rd:true } : { k:'ok', r:real, tg:target };
+  return { pack, f, src, memKey, real, sug, final, manual, pcs: final * f, newStock: real + final * f, flags, status, cx, value: final * (row.price||0) };
+}
+function supComputed(key){ const d = session.sup[key]; return d ? d.rows.map(r => Object.assign({ sup:key }, r, calcSup(key, r))) : []; }
+function supSummary(key){
+  const L2 = supComputed(key);
+  return { lines:L2.length, order:L2.filter(x=>x.final>0).length, packs:L2.reduce((a,x)=>a+x.final,0), value:L2.reduce((a,x)=>a+x.value,0),
+    red:L2.filter(x=>x.status==='red').length, amber:L2.filter(x=>x.status==='amber').length, manual:L2.filter(x=>x.manual).length, list:L2 };
+}
+function supCalcText(x){
+  const c = x.cx; if (!c) return '';
+  if (c.k==='ok') return t('calc_ok', fmtq(c.r), fmtq(c.tg));
+  return t('calc_need_sup', fmtq(c.s), c.b, fmtq(c.r), fmtq(c.n), x.f, x.sug);
+}
+
+function renderOthers(){
+  if (ui.sup !== 'overview' && !session.sup[ui.sup]) ui.sup = 'overview';
+  if (ui.sup === 'overview') return renderSupOverview();
+  return renderSup(ui.sup);
+}
+function renderSupOverview(){
+  const el = $('#main'), keys = supKeys();
+  const head = phead(t('secOthers'), keys.length ? t('supCount', keys.length) : esc(t('othersLead')),
+    `<button class="btn" data-act="pick" data-cat="any">${ICON.up} ${t('load')}</button>
+     <button class="btn" data-act="sup-export-all" ${keys.length?'':'disabled'}>${ICON.sheet} ${t('xlsAll')}</button>`);
+  if (!keys.length){ el.innerHTML = head + dropZone('any', t('supEmptyTitle'), t('supEmptyText')); return; }
+  const S = Object.fromEntries(keys.map(k=>[k, supSummary(k)]));
+  const byCur = {};
+  keys.forEach(k => { const c = session.sup[k].cur; byCur[c] = (byCur[c]||0) + S[k].value; });
+  const valTxt = Object.entries(byCur).map(([c,v])=>money(v,c,0)).join(' + ');
+  const lines = keys.reduce((a,k)=>a+S[k].order,0), red = keys.reduce((a,k)=>a+S[k].red+S[k].amber,0);
+  const maxV = Math.max(1, ...keys.map(k=>S[k].value));
+  const issues = keys.flatMap(k=>S[k].list.filter(x=>x.status!=='ok'));
+  el.innerHTML = head + `
+    <section class="panel stats">
+      <div class="stat"><span class="l">${t('kpiBuy')}</span><span class="v">${valTxt}</span><span class="d">${t('supCount', keys.length)}</span></div>
+      <div class="stat"><span class="l">${t('kpiLines')}</span><span class="v">${fmt(lines)}</span><span class="d">${t('kpiLinesSub', fmt(keys.reduce((a,k)=>a+S[k].lines,0)))}</span></div>
+      <div class="stat"><span class="l">${t('kpiPacks')}</span><span class="v">${fmt(keys.reduce((a,k)=>a+S[k].packs,0))}</span><span class="d">${t('kpiPacksSub')}</span></div>
+      <div class="stat"><span class="l">${t('kpiCheck')}</span><span class="v ${red?'red':''}">${fmt(red)}</span><span class="d">${red?t('kpiCheckSub'):t('noIssues')}</span></div>
+    </section>
+    <section class="panel" style="margin-top:16px">
+      <div class="ph"><h2>${t('suppliers')}</h2><span class="s">${t('cardCatsSub')}</span></div>
+      ${keys.map(k => { const d = session.sup[k], s = S[k];
+        return `<div class="catrow" data-act="sup" data-v="${esc(k)}"><span class="dt" style="--cat:var(--accent)"></span>
+          <div class="nm"><b>${esc(d.name)}</b><span>${d.port?esc(d.port)+', ':''}${t('items', fmt(s.lines))}</span></div>
+          <div class="bar" style="--cat:var(--accent)"><i style="width:${s.value/maxV*100}%"></i></div>
+          <span class="n">${t('lines', s.order)}</span><span class="n v">${money(s.value, d.cur, 0)}</span>
+          <span class="iss ${s.red?'r':''}">${s.red ? t('toCheck', s.red) : s.amber ? t('warnings', s.amber) : t('ready')}</span><span class="ch">${ICON.chev}</span></div>`; }).join('')}
+    </section>
+    ${issues.length ? `<section class="panel" style="margin-top:16px"><div class="ph"><h2>${t('cardCheck')}</h2><span class="s">${t('cardCheckSub')}</span></div>
+      ${issues.slice(0,10).map(x=>`<div class="li"><span class="dt" style="--cat:var(--accent)"></span><div class="t"><b>${esc(x.desc)}</b><span>${esc(session.sup[x.sup].name)}, ${t('col_sold').toLowerCase()} ${fmtq(x.sold)}, ${t('col_real').toLowerCase()} ${fmtq(x.real)}</span></div>
+        ${x.flags.filter(f=>f.c==='red'||f.c==='amber').slice(0,1).map(f=>`<span class="st ${f.c}">${esc(f.t)}</span>`).join('')}
+        <button class="btn sm" data-act="sup-goto" data-sup="${esc(x.sup)}" data-code="${esc(x.code)}">${t('fix')}</button></div>`).join('')}</section>` : ''}`;
+}
+function renderSup(key){
+  const el = $('#main'), d = session.sup[key], all = supComputed(key), s = supSummary(key);
+  const counts = { all: all.length, order: s.order, check: all.filter(x=>x.status!=='ok').length, manual: s.manual };
+  const showStock = settings.showWinposStock;
+  const th = (k,n,cls='',title='') => `<th class="${cls}" data-act="sort" data-k="${k}" ${title?`title="${esc(title)}"`:''}>${esc(n)}${ui.sort.key===k?` <span class="arr">${ui.sort.dir>0?'▲':'▼'}</span>`:''}</th>`;
+  const seg = (k,n,c,isRed) => `<button class="${ui.filter===k?'on':''}" data-act="filter" data-v="${k}">${esc(n)}<span class="c ${isRed&&c?'r':''}">${c}</span></button>`;
+  el.innerHTML = phead(d.name, `${d.port?esc(d.port)+', ':''}${t('catMeta', s.order, s.lines, money(s.value, d.cur))} <span class="q" title="${esc(d.fileName)}">i</span>`,
+      `<button class="btn ghost" data-act="pick" data-cat="any">${ICON.swap} ${t('replace')}</button>
+       <button class="btn ghost" data-act="sup-clear" data-sup="${esc(key)}">${t('remove')}</button>`)
+    + `<p class="lead">${esc(t('lead_sup'))}</p>
+    <div class="toolbar">
+      <div class="search">${ICON.search}<input id="q" type="search" placeholder="${esc(t('searchSup'))}" value="${esc(ui.q)}"></div>
+      <div class="seg">${seg('all',t('fAll'),counts.all)}${seg('order',t('fOrder'),counts.order)}${seg('check',t('fCheck'),counts.check,true)}${seg('manual',t('fManual'),counts.manual)}</div>
+      <label class="toggle"><input type="checkbox" data-act-change="calc" ${settings.showCalc?'checked':''}> ${t('showCalc')}</label>
+      ${counts.manual ? `<button class="btn ghost sm" data-act="reset-ov">${t('resetEdits')}</button>` : ''}
+      <button class="btn ghost sm" data-act="print" title="${t('print')}" aria-label="${t('print')}">${ICON.print}</button>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr>
+        ${th('code',t('col_code_sup'))}${th('art',t('col_art'))}${th('desc',t('col_desc'))}${th('sold',t('col_sold'),'r')}
+        ${showStock ? th('stock',t('col_winpos'),'r',t('tip_winpos')) : ''}
+        ${th('real',t('col_real'),'r',t('tip_real_sup'))}${th('su',t('col_su'),'r',t('tip_su_sup'))}
+        ${th('final',t('col_packs'),'r col-order')}${th('pcs',t('col_pcs'),'r')}${th('newStock',t('col_new'),'r',t('tip_new'))}
+        ${th('price',t('col_pprice'),'r')}${th('value',t('col_value'),'r')}
+      </tr></thead>
+      <tbody id="tbody"></tbody><tfoot id="tfoot"></tfoot></table></div>
+    <div class="legend"><span class="st red">${t('lgMissing')}</span><span class="st amber">${t('lgNeg')}</span><span class="st blue">${t('lgManual')}</span><span>${t('lgEnter')}</span></div>`;
+  renderSupBody(key, all);
+}
+function renderSupBody(key, all){
+  all = all || supComputed(key);
+  const d = session.sup[key], showStock = settings.showWinposStock, extra = showStock ? 1 : 0;
+  const R = catRows(all);
+  $('#tbody').innerHTML = R.map(x => `<tr class="st-${x.status} ${x.final>0?'':'zero'}">
+      <td class="code">${esc(x.code)}</td><td class="code">${esc(x.art)}</td>
+      <td class="desc"><div class="d">${esc(x.desc)}</div>
+        ${x.flags.length?`<div class="flags">${x.flags.map(f=>`<span class="st ${f.c}">${esc(f.t)}</span>`).join('')}</div>`:''}
+        ${settings.showCalc?`<div class="why">${esc(supCalcText(x))}</div>`:''}</td>
+      <td class="r">${fmtq(x.sold)}</td>
+      ${showStock ? `<td class="r" title="${esc(x.stockRaw)}">${fmt(x.stock)}</td>` : ''}
+      <td class="r ${x.real<0?'neg':''}">${fmtq(x.real)}</td>
+      <td class="r"><input class="su-in ${x.src==='missing'?'missing':''}" data-su="${esc(x.code)}" inputmode="numeric" aria-label="${t('col_su')}"
+        value="${x.src==='missing' ? '' : x.pack}" placeholder="${x.src==='missing'?'?':''}" title="${esc('Winpos: ' + (x.unit||'–'))}"></td>
+      <td class="r col-order" title="${esc(supCalcText(x))}"><span class="qty ${x.manual?'manual':x.final>0?'has':''}">
+        <button data-act="step" data-d="-1" data-code="${esc(x.code)}" tabindex="-1" aria-label="−">−</button>
+        <input data-qty="${esc(x.code)}" inputmode="numeric" value="${x.final}" aria-label="${t('col_packs')}">
+        <button data-act="step" data-d="1" data-code="${esc(x.code)}" tabindex="-1" aria-label="+">+</button></span></td>
+      <td class="r">${x.final>0 ? fmtq(x.pcs) : '–'}</td>
+      <td class="r newst ${x.newStock<0?'neg':''}">${fmtq(x.newStock)}</td>
+      <td class="r">${fmt(x.price,2)}</td>
+      <td class="r">${x.final>0 ? money(x.value, d.cur) : '–'}</td></tr>`).join('')
+    || `<tr><td colspan="${11+extra}"><div class="empty-state">${t('noRows')}</div></td></tr>`;
+  const ord = R.filter(x=>x.final>0);
+  $('#tfoot').innerHTML = `<tr><td colspan="3">${t('foot', fmt(R.length), fmt(ord.length))}</td><td colspan="${3+extra}"></td>
+    <td class="r"><b>${fmt(ord.reduce((a,x)=>a+x.final,0))}</b></td><td class="r">${fmt(ord.reduce((a,x)=>a+x.pcs,0))}</td><td></td><td></td><td class="r"><b>${money(ord.reduce((a,x)=>a+x.value,0), d.cur)}</b></td></tr>`;
+}
+function setSupOverride(key, code, val){
+  const row = session.sup[key].rows.find(r=>r.code===code);
+  const sug = calcSup(key, row).sug, n = parseInt(val,10);
+  session.supOv[key] = session.supOv[key] || {};
+  if (val==='' || isNaN(n) || n===sug) delete session.supOv[key][code]; else session.supOv[key][code] = Math.max(0,n);
+  saveSession(); refresh();
+}
+/** Bestillingsliste til leverandøren: én fane pr. leverandør */
+function exportSuppliers(keys){
+  if (!needXLSX()) return;
+  const wb = XLSX.utils.book_new(), w = currentWeek();
+  let n = 0;
+  for (const k of keys){
+    const d = session.sup[k], L2 = supComputed(k).filter(x=>x.final>0);
+    const head = [t('col_code_sup'), t('col_art'), t('col_desc'), t('col_packs'), t('col_su'), t('col_pcs'), t('col_pprice'), t('col_value')];
+    const rows = L2.map(x => [asCell(x.code), asCell(x.art), x.desc, x.final, x.pack, x.pcs, x.price, Math.round(x.value*100)/100]);
+    const tot = L2.reduce((a,x)=>a+x.value,0);
+    const ws = XLSX.utils.aoa_to_sheet([[`${d.name}${d.port?' – '+d.port:''}`, '', t('week', w)], [], head].concat(rows, [[], ['', '', t('total'), L2.reduce((a,x)=>a+x.final,0), '', L2.reduce((a,x)=>a+x.pcs,0), '', Math.round(tot*100)/100]]));
+    ws['!cols'] = [{wch:12},{wch:13},{wch:44},{wch:13},{wch:15},{wch:8},{wch:14},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws, d.name.replace(/[\\/?*[\]:]/g,'').slice(0,31) || k);
+    n++;
+  }
+  if (!n){ toast(t('tNothing')); return; }
+  const name = keys.length === 1 ? `${t('orderFile')} ${session.sup[keys[0]].name} ${t('week', w)}.xlsx` : `${t('orderFile')} ${t('secOthers')} ${t('week', w)}.xlsx`;
+  XLSX.writeFile(wb, name);
+  toast(t('tExported', 1));
+}
+
+/* =====================================================================
    Indstillinger og hjælp
    ===================================================================== */
 function openSettings(){
@@ -1359,7 +1629,7 @@ function applyTheme(){ document.documentElement.dataset.theme = settings.theme =
 function openHelp(){
   $('#mHelpT').textContent = t('hTitle');
   const li = a => a.map(x=>`<li>${esc(x)}</li>`).join('');
-  $('#helpBody').innerHTML = `<div><h3>${t('hOrder')}</h3><ol>${li(L().hO)}</ol></div><div><h3>${t('hCalc')}</h3><ul>${li(L().hC)}</ul></div><div><h3>${t('hRx')}</h3><ol>${li(L().hR)}</ol></div><p class="help">${t('hPriv')}</p>`;
+  $('#helpBody').innerHTML = `<div><h3>${t('hOrder')}</h3><ol>${li(L().hO)}</ol></div><div><h3>${t('hCalc')}</h3><ul>${li(L().hC)}</ul></div><div><h3>${t('hSup')}</h3><ol>${li(L().hS)}</ol></div><div><h3>${t('hRx')}</h3><ol>${li(L().hR)}</ol></div><p class="help">${t('hPriv')}</p>`;
   $('#mHelp').classList.add('show');
 }
 
@@ -1369,36 +1639,35 @@ function openHelp(){
 function render(){
   if (!(ui.tab in CATS) && ui.tab!=='overview' && ui.tab!=='receive') ui.tab = 'overview';
   applyTheme(); renderTop();
-  if (ui.tab==='overview') renderOverview(); else if (ui.tab==='receive') renderReceive(); else renderCat(ui.tab);
+  if (ui.section === 'others') renderOthers();
+  else if (ui.tab==='overview') renderOverview(); else if (ui.tab==='receive') renderReceive(); else renderCat(ui.tab);
+  renderTop();
 }
 function pickFile(cat){ const i = $('#file_'+cat); if (i){ i.value=''; i.click(); } }
-async function loadAny(files){
-  const unknown = [], hit = new Set();
-  for (const f of files){
-    let c = guessCat(f.name);
-    if (!c && ui.tab==='receive') c = 'cdl';
-    if (!c && CATS[ui.tab] && files.length===1) c = ui.tab;
-    if (c==='cdl') await rxLoad(f); else if (c){ await loadOrderFile(c, f, files.length>1); hit.add(c); } else unknown.push(f.name);
-  }
-  if (hit.size > 1){ ui.tab = 'overview'; saveUi(); render(); }
-  if (unknown.length) toast(t('tUnknown', unknown.join(', ')));
-}
+function rerenderTable(){ ui.section==='others' ? renderSup(ui.sup) : renderCat(ui.tab); }
+function rerenderBody(){ ui.section==='others' ? renderSupBody(ui.sup) : renderCatBody(ui.tab); }
 
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el) return;
   const a = el.dataset.act;
   if (el.tagName === 'INPUT' && a !== 'none') return;
   switch (a){
-    case 'tab': ui.tab = el.dataset.v; Object.assign(ui, { filter:'all', q:'', sort:{key:null,dir:1} }); saveUi(); render(); break;
+    case 'section': ui.section = el.dataset.v; Object.assign(ui, { filter:'all', q:'', sort:{key:null,dir:1} }); saveUi(); render(); window.scrollTo({top:0}); break;
+    case 'sup': ui.section='others'; ui.sup = el.dataset.v; Object.assign(ui, { filter:'all', q:'', sort:{key:null,dir:1} }); saveUi(); render(); break;
+    case 'sup-goto': Object.assign(ui, { section:'others', sup:el.dataset.sup, filter:'all', q:el.dataset.code, sort:{key:null,dir:1} }); saveUi(); render(); break;
+    case 'sup-clear': if (confirm(t('cRemove', session.sup[el.dataset.sup].name))){ delete session.sup[el.dataset.sup]; delete session.supOv[el.dataset.sup]; saveSession(); ui.sup='overview'; saveUi(); render(); } break;
+    case 'sup-export': exportSuppliers([el.dataset.sup]); break;
+    case 'sup-export-all': exportSuppliers(supKeys()); break;
+    case 'tab': ui.section='heinemann'; ui.tab = el.dataset.v; Object.assign(ui, { filter:'all', q:'', sort:{key:null,dir:1} }); saveUi(); render(); break;
     case 'lang': settings.lang = el.dataset.v; saveSettingsStore(); render(); break;
     case 'theme': settings.theme = settings.theme==='dark' ? 'light' : 'dark'; saveSettingsStore(); render(); break;
     case 'pick': pickFile(el.dataset.cat); break;
     case 'clear': if (confirm(t('cRemove', catName(el.dataset.cat)))){ delete session.data[el.dataset.cat]; session.overrides[el.dataset.cat]={}; saveSession(); render(); } break;
-    case 'filter': ui.filter = el.dataset.v; renderCat(ui.tab); break;
-    case 'sort': { const k=el.dataset.k; ui.sort = ui.sort.key===k ? {key:k,dir:-ui.sort.dir} : {key:k,dir:(['desc','code','art'].includes(k)?1:-1)}; renderCat(ui.tab); break; }
-    case 'step': { const x = computed(ui.tab).find(r=>r.code===el.dataset.code); setOverride(ui.tab, el.dataset.code, Math.max(0, x.final + (+el.dataset.d))); break; }
+    case 'filter': ui.filter = el.dataset.v; rerenderTable(); break;
+    case 'sort': { const k=el.dataset.k; ui.sort = ui.sort.key===k ? {key:k,dir:-ui.sort.dir} : {key:k,dir:(['desc','code','art'].includes(k)?1:-1)}; rerenderTable(); break; }
+    case 'step': if (ui.section==='others'){ const x = supComputed(ui.sup).find(r=>r.code===el.dataset.code); setSupOverride(ui.sup, el.dataset.code, Math.max(0, x.final + (+el.dataset.d))); break; } { const x = computed(ui.tab).find(r=>r.code===el.dataset.code); setOverride(ui.tab, el.dataset.code, Math.max(0, x.final + (+el.dataset.d))); break; }
     case 'goto': Object.assign(ui, { tab:el.dataset.cat, filter:'all', q:el.dataset.code, sort:{key:null,dir:1} }); saveUi(); render(); break;
-    case 'reset-ov': session.overrides[ui.tab]={}; saveSession(); render(); toast(t('tReset')); break;
+    case 'reset-ov': if (ui.section==='others') session.supOv[ui.sup]={}; else session.overrides[ui.tab]={}; saveSession(); render(); toast(t('tReset')); break;
     case 'print': window.print(); break;
     case 'export-order': openExport(); break;
     case 'do-export': doExport(); break;
@@ -1455,12 +1724,13 @@ document.addEventListener('change', e => {
     });
     return;
   }
-  if (el.dataset.actChange==='calc'){ settings.showCalc = el.checked; saveSettingsStore(); renderCatBody(ui.tab); return; }
-  if (el.dataset.qty!=null){ const ns = el.dataset.nextSel; setOverride(ui.tab, el.dataset.qty, el.value); if (ns){ const n=document.querySelector(ns); if(n){ n.focus(); n.select(); } } return; }
+  if (el.dataset.actChange==='calc'){ settings.showCalc = el.checked; saveSettingsStore(); rerenderBody(); return; }
+  if (el.dataset.qty!=null){ const ns = el.dataset.nextSel; ui.section==='others' ? setSupOverride(ui.sup, el.dataset.qty, el.value) : setOverride(ui.tab, el.dataset.qty, el.value); if (ns){ const n=document.querySelector(ns); if(n){ n.focus(); n.select(); } } return; }
   if (el.dataset.su!=null){
-    const v = parseSU(el.value), code = el.dataset.su, ns = el.dataset.nextSel;
-    if (el.value.trim()==='') delete suMemory[code]; else if (!v){ toast(t('tSuBad')); render(); return; } else suMemory[code] = v;
-    store.set(K_SU, suMemory); delete session.overrides[ui.tab][code]; saveSession();
+    const v = parseSU(el.value), code = el.dataset.su, ns = el.dataset.nextSel, others = ui.section==='others';
+    const mk = others ? 's:' + ui.sup + ':' + code : code;
+    if (el.value.trim()==='') delete suMemory[mk]; else if (!v){ toast(t('tSuBad')); render(); return; } else suMemory[mk] = v;
+    store.set(K_SU, suMemory); if (others) delete session.supOv[ui.sup]?.[code]; else delete session.overrides[ui.tab][code]; saveSession();
     refresh(ns || undefined); toast(v ? t('tSu', v) : t('tSuDel'));
     return;
   }
@@ -1471,7 +1741,7 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('input', e => {
   const el = e.target;
-  if (el.id==='q'){ ui.q = el.value; renderCatBody(ui.tab); return; }
+  if (el.id==='q'){ ui.q = el.value; rerenderBody(); return; }
   if (el.id==='rxQ'){ rui.q = el.value; rxRenderBody(); return; }
   if (el.dataset.colf!=null){ rui.colf[el.dataset.colf] = el.value; el.classList.toggle('act', !!el.value.trim()); rxRenderBody(); const b=$('#rxClearF'); if (b) b.disabled = !Object.values(rui.colf).some(x=>x&&x.trim()); }
 });
